@@ -1,0 +1,86 @@
+/* Design tokens + base styles. */
+:root {
+  --bg: #0c0d11;
+  --text: #edeef2;
+  --muted: #9a9eae;
+  --muted-2: #7c8091;
+  --muted-3: #6a6e7e;
+  --muted-4: #5c6070;
+  --muted-5: #4d5162;
+  --border: #21232d;
+  --border-2: #24262f;
+  --surface: #12141b;
+  --surface-2: #15171f;
+
+  --sean: oklch(0.78 0.15 155); /* Sean Paul — green */
+  --pit: oklch(0.78 0.15 55); /* Pitbull — orange */
+  --gold: oklch(0.82 0.14 85); /* streak accent */
+
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font-family: inherit;
+}
+
+@keyframes eq {
+  from {
+    transform: scaleY(0.14);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
