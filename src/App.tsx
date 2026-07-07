@@ -2,18 +2,21 @@ import { createContext, useContext, useEffect, useRef, type ReactNode } from 're
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { useGame, type Game, type Selection } from './game/useGame'
 import { useAudioPlayer } from './game/useAudioPlayer'
-import { previewFor } from './game/previews'
 import { unlockAudio, playSting } from './game/stings'
 import { modeBySlug, type Mode } from './game/modes'
+import { matchupById, type Matchup, type Side } from './game/matchups'
 import { HomeScreen } from './components/screens/HomeScreen'
+import { ModeSelectScreen } from './components/screens/ModeSelectScreen'
+import { CustomDuelScreen } from './components/screens/CustomDuelScreen'
 import { PlayingScreen } from './components/screens/PlayingScreen'
 import { RevealScreen } from './components/screens/RevealScreen'
 import { ResultsScreen } from './components/screens/ResultsScreen'
-import { C } from './theme'
+import { C, slotColor } from './theme'
 
 /**
- * The single shared game instance lives here, above <Routes>, so that
- * navigating /jouer/:mode → /resultats keeps the same state. Routes must read
+ * The single shared game instance lives here, above <Routes>, so navigating
+ * /jouer/:matchup/:mode → /resultats keeps the same state — and the in-memory
+ * custom matchup survives across the builder → play → results flow. Routes read
  * it from context, never call useGame() themselves.
  */
 const GameContext = createContext<Game | null>(null)
@@ -52,7 +55,9 @@ export function App() {
       <Shell>
         <Routes>
           <Route path="/" element={<HomeRoute />} />
-          <Route path="/jouer/:mode" element={<PlayRoute />} />
+          <Route path="/duel/custom" element={<CustomDuelRoute />} />
+          <Route path="/duel/:matchupId" element={<CuratedDuelRoute />} />
+          <Route path="/jouer/:matchup/:mode" element={<PlayRoute />} />
           <Route path="/resultats" element={<ResultsRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -62,16 +67,43 @@ export function App() {
 }
 
 function HomeRoute() {
+  const navigate = useNavigate()
+  return (
+    <HomeScreen
+      onSelectMatchup={(matchup) => navigate(`/duel/${matchup.id}`)}
+      onCustom={() => navigate('/duel/custom')}
+    />
+  )
+}
+
+function CuratedDuelRoute() {
   const game = useGameContext()
   const navigate = useNavigate()
+  const { matchupId } = useParams()
+  const matchup = matchupId ? matchupById(matchupId) : undefined
+
+  if (!matchup) return <Navigate to="/" replace />
 
   const handleSelect = (mode: Mode) => {
     unlockAudio()
-    game.start(mode)
-    navigate(`/jouer/${mode.slug}`)
+    game.start(matchup, mode)
+    navigate(`/jouer/${matchup.id}/${mode.slug}`)
   }
 
-  return <HomeScreen onSelect={handleSelect} />
+  return <ModeSelectScreen matchup={matchup} onSelect={handleSelect} onBack={() => navigate('/')} />
+}
+
+function CustomDuelRoute() {
+  const game = useGameContext()
+  const navigate = useNavigate()
+
+  const handlePlay = (matchup: Matchup, mode: Mode) => {
+    unlockAudio()
+    game.start(matchup, mode)
+    navigate(`/jouer/custom/${mode.slug}`)
+  }
+
+  return <CustomDuelScreen onPlay={handlePlay} onBack={() => navigate('/')} />
 }
 
 function PlayRoute() {
@@ -79,18 +111,27 @@ function PlayRoute() {
   const { state } = game
   const params = useParams()
   const navigate = useNavigate()
-  const resolved = params.mode ? modeBySlug(params.mode) : undefined
+
+  const mode = params.mode ? modeBySlug(params.mode) : undefined
+  const isCustom = params.matchup === 'custom'
+  const curated = !isCustom && params.matchup ? matchupById(params.matchup) : undefined
+  // The custom matchup only exists in memory once built via the builder.
+  const activeCustom = game.matchup?.id === 'custom' ? game.matchup : undefined
+  const matchup = isCustom ? activeCustom : curated
+
   const { start } = game
+  const activeMatchupId = game.matchup?.id
   const activeModeKey = game.mode?.key
 
-  // Auto-start on cold entry / slug change so bare /jouer/:mode deep-links work.
+  // Auto-start curated deep-links (/jouer/:id/:mode). Custom is never auto-started
+  // — a cold custom URL has no in-memory matchup and redirects home below.
   useEffect(() => {
-    if (!resolved) return
-    if (activeModeKey !== resolved.key) {
+    if (!mode || !curated) return
+    if (activeMatchupId !== curated.id || activeModeKey !== mode.key) {
       unlockAudio()
-      start(resolved)
+      start(curated, mode)
     }
-  }, [resolved, activeModeKey, start])
+  }, [mode, curated, activeMatchupId, activeModeKey, start])
 
   // Leave the play route once the run ends (reveal → results is route-owned).
   useEffect(() => {
@@ -98,14 +139,9 @@ function PlayRoute() {
   }, [state.screen, navigate])
 
   // Drive the current track's clip while the question is live (never on
-  // reveal/results). Blitz caps audible playback at mode.clipSeconds.
-  const clipUrl = state.screen === 'playing' && game.song ? previewFor(game.song.t) : undefined
-  const audio = useAudioPlayer(
-    clipUrl,
-    state.screen === 'playing' && state.playing,
-    state.muted,
-    game.mode?.clipSeconds,
-  )
+  // reveal/results).
+  const clipUrl = state.screen === 'playing' && game.song ? game.song.previewUrl : undefined
+  const audio = useAudioPlayer(clipUrl, state.screen === 'playing' && state.playing, state.muted)
 
   // Fire the timeout sting once when `selected` transitions null → 'timeout'.
   const prevSelected = useRef<Selection>(null)
@@ -117,22 +153,16 @@ function PlayRoute() {
     }
   }, [state.selected, state.muted])
 
-  if (!resolved) return <Navigate to="/" replace />
+  if (!mode) return <Navigate to="/" replace />
+  // Invalid curated id, or a cold/reloaded custom URL with no in-memory matchup.
+  if (!matchup) return <Navigate to="/" replace />
 
-  const handleGuessSean = () => {
+  const handleGuess = (side: Side) => {
     unlockAudio()
     if (state.selected === null) {
-      playSting(game.song?.a === 'sean' ? 'correct' : 'wrong', state.muted)
+      playSting(game.song?.side === side ? 'correct' : 'wrong', state.muted)
     }
-    game.guessSean()
-  }
-
-  const handleGuessPit = () => {
-    unlockAudio()
-    if (state.selected === null) {
-      playSting(game.song?.a === 'pit' ? 'correct' : 'wrong', state.muted)
-    }
-    game.guessPit()
+    game.guess(side)
   }
 
   const handleToggle = () => {
@@ -150,6 +180,7 @@ function PlayRoute() {
       <RevealScreen
         correct={game.correct}
         selected={state.selected}
+        matchup={matchup}
         song={game.song}
         isLast={game.isLast}
         streakTier={game.streakTier}
@@ -170,10 +201,13 @@ function PlayRoute() {
       timerEnabled={game.timerEnabled}
       timeLeft={state.timeLeft}
       seconds={game.seconds}
-      clipSeconds={game.mode?.clipSeconds}
+      nameA={matchup.a.name}
+      nameB={matchup.b.name}
+      accentA={slotColor('a')}
+      accentB={slotColor('b')}
       onToggle={handleToggle}
-      onGuessSean={handleGuessSean}
-      onGuessPit={handleGuessPit}
+      onGuessA={() => handleGuess('a')}
+      onGuessB={() => handleGuess('b')}
       hasAudio={audio.hasAudio && !audio.error}
       loading={audio.hasAudio && !audio.ready && !audio.error}
       blocked={audio.blocked}
@@ -190,22 +224,25 @@ function ResultsRoute() {
   const { state } = game
   const navigate = useNavigate()
 
-  // Guard: cold hit / refresh with no finished run → home.
-  if (game.mode == null || state.screen !== 'results') {
+  // Guard: cold hit / refresh with no finished run → home. A reloaded custom run
+  // also lands here (in-memory matchup gone) and correctly redirects.
+  if (game.matchup == null || game.mode == null || state.screen !== 'results') {
     return <Navigate to="/" replace />
   }
 
+  const matchup = game.matchup
+  const mode = game.mode
+
   const handlePlayAgain = () => {
-    const mode = game.mode
-    if (!mode) return
     unlockAudio()
     game.playAgain()
-    navigate(`/jouer/${mode.slug}`)
+    navigate(`/jouer/${matchup.id}/${mode.slug}`)
   }
 
   return (
     <ResultsScreen
-      mode={game.mode}
+      matchup={matchup}
+      mode={mode}
       score={state.score}
       total={game.total}
       bestStreak={state.bestStreak}

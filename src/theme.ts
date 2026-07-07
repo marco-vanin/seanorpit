@@ -23,7 +23,7 @@ export const C = {
   monoFont: "'IBM Plex Mono', monospace",
 } as const
 
-/** Artist accent color helper. */
-export function artistColor(artist: 'sean' | 'pit'): string {
-  return artist === 'sean' ? C.sean : C.pit
+/** Slot accent helper: A = green, B = orange. */
+export function slotColor(side: 'a' | 'b'): string {
+  return side === 'a' ? C.sean : C.pit
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Resolve a 30-second preview clip for every track via the iTunes Search API
- * and write src/game/previews.json ({ [title]: previewUrl }).
+ * Resolve a 30-second preview clip for every curated track via the iTunes
+ * Search API and write src/game/previews.json keyed by matchup:
+ *   { [matchupId]: { [title]: previewUrl } }
  *
  * Runs in Node so there's no browser CORS constraint. The resulting previewUrl
  * values are Apple-CDN audio files that play fine in an <audio> element.
@@ -15,10 +16,9 @@ import { dirname, resolve } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(here, '../src/game/previews.json')
 
-// Single source of truth, shared with src/game/songs.ts.
-const SONGS = JSON.parse(await readFile(resolve(here, '../src/game/songs.data.json'), 'utf8'))
+// Single source of truth, shared with src/game/matchups.ts.
+const MATCHUPS = JSON.parse(await readFile(resolve(here, '../src/game/matchups.data.json'), 'utf8'))
 
-const ARTIST = { sean: 'Sean Paul', pit: 'Pitbull' }
 const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 
 async function search(term) {
@@ -50,24 +50,32 @@ function pickBest(results, artist, title) {
 }
 
 const out = {}
-let ok = 0
-for (const s of SONGS) {
-  const artist = ARTIST[s.a]
-  try {
-    const results = await search(`${artist} ${s.t}`)
-    const hit = pickBest(results, artist, s.t)
-    if (hit?.previewUrl) {
-      out[s.t] = hit.previewUrl
-      ok++
-      console.log(`✓ ${artist} — ${s.t}  →  ${hit.trackName} (${hit.artistName})`)
-    } else {
-      console.warn(`✗ no preview: ${artist} — ${s.t}`)
+const summary = []
+for (const matchup of MATCHUPS) {
+  const artistFor = { a: matchup.a.name, b: matchup.b.name }
+  const bucket = {}
+  let ok = 0
+  for (const s of matchup.songs) {
+    const artist = artistFor[s.side]
+    try {
+      const results = await search(`${artist} ${s.t}`)
+      const hit = pickBest(results, artist, s.t)
+      if (hit?.previewUrl) {
+        bucket[s.t] = hit.previewUrl
+        ok++
+        console.log(`✓ [${matchup.id}] ${artist} — ${s.t}  →  ${hit.trackName} (${hit.artistName})`)
+      } else {
+        console.warn(`✗ [${matchup.id}] no preview: ${artist} — ${s.t}`)
+      }
+    } catch (e) {
+      console.warn(`✗ [${matchup.id}] error: ${artist} — ${s.t}: ${e.message}`)
     }
-  } catch (e) {
-    console.warn(`✗ error: ${artist} — ${s.t}: ${e.message}`)
+    await new Promise((r) => setTimeout(r, 200))
   }
-  await new Promise((r) => setTimeout(r, 200))
+  out[matchup.id] = bucket
+  summary.push(`${matchup.id}: ${ok}/${matchup.songs.length}`)
 }
 
 await writeFile(OUT, JSON.stringify(out, null, 2) + '\n')
-console.log(`\nWrote ${ok}/${SONGS.length} previews → ${OUT}`)
+console.log(`\nWrote previews → ${OUT}`)
+for (const line of summary) console.log(`  ${line}`)

@@ -1,11 +1,11 @@
 /**
  * Game modes — one config map, one engine. Each mode carries its own round
- * length, timer, optional audible-clip cap, run-end rule, and localStorage best
- * key. The engine (`useGame`) reads these off the active mode; nothing about a
- * mode is hardcoded elsewhere.
+ * length, timer, run-end rule, and localStorage best key. The engine
+ * (`useGame`) reads these off the active mode; nothing about a mode is
+ * hardcoded elsewhere.
  */
 
-export type ModeKey = 'classique' | 'blitz' | 'mortsubite'
+export type ModeKey = 'classique' | 'mortsubite'
 
 export interface Mode {
   key: ModeKey
@@ -20,8 +20,6 @@ export interface Mode {
   /** Fixed round length, or 'endless' for the shuffled full pool */
   questions: number | 'endless'
   timerSeconds: number
-  /** Cap audible playback in seconds (Blitz). undefined = full clip, looped. */
-  clipSeconds?: number
   /** Mort subite: the first wrong/timeout answer ends the run. */
   endOnWrong: boolean
   /** localStorage key holding this mode's best. */
@@ -40,18 +38,6 @@ export const MODES: Record<ModeKey, Mode> = {
     endOnWrong: false,
     bestKey: 'spvp_best_classique',
   },
-  blitz: {
-    key: 'blitz',
-    slug: 'blitz',
-    label: 'Blitz',
-    rule: 'Extrait 6 s · 7 s pour répondre',
-    icon: '⚡',
-    questions: 10,
-    timerSeconds: 7,
-    clipSeconds: 6,
-    endOnWrong: false,
-    bestKey: 'spvp_best_blitz',
-  },
   mortsubite: {
     key: 'mortsubite',
     slug: 'mort-subite',
@@ -65,8 +51,8 @@ export const MODES: Record<ModeKey, Mode> = {
   },
 }
 
-/** Ordered list for the home hub: Classique, Blitz, Mort subite. */
-export const MODE_LIST: Mode[] = [MODES.classique, MODES.blitz, MODES.mortsubite]
+/** Ordered list for the home hub: Classique, Mort subite. */
+export const MODE_LIST: Mode[] = [MODES.classique, MODES.mortsubite]
 
 /** Resolve a URL slug to its mode, or undefined if unknown. */
 export function modeBySlug(slug: string): Mode | undefined {

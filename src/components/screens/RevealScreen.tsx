@@ -1,11 +1,12 @@
 import { Button } from '../ui/Button'
-import { C, artistColor } from '../../theme'
-import { ARTIST_NAME, type Song } from '../../game/songs'
+import { C } from '../../theme'
+import { sideColor, type Matchup, type Song } from '../../game/matchups'
 import type { Selection } from '../../game/useGame'
 
 export function RevealScreen({
   correct,
   selected,
+  matchup,
   song,
   isLast,
   streakTier,
@@ -14,6 +15,7 @@ export function RevealScreen({
 }: {
   correct: boolean
   selected: Selection
+  matchup: Matchup
   song: Song | null
   isLast: boolean
   streakTier: 0 | 1 | 2
@@ -118,19 +120,19 @@ export function RevealScreen({
           marginBottom: 6,
         }}
       >
-        « {song?.t ?? ''} »
+        « {song?.title ?? ''} »
       </div>
       <div
         style={{
           fontSize: 20,
           fontWeight: 600,
-          color: song ? artistColor(song.a) : C.text,
+          color: song ? sideColor(matchup, song.side) : C.text,
           marginBottom: 8,
         }}
       >
-        {song ? ARTIST_NAME[song.a] : ''}
+        {song ? matchup[song.side].name : ''}
       </div>
-      <div style={{ color: C.muted2, fontSize: 15, marginBottom: 38 }}>{song?.m ?? ''}</div>
+      <div style={{ color: C.muted2, fontSize: 15, marginBottom: 38 }}>{song?.meta ?? ''}</div>
 
       <Button onClick={onNext}>{isLast ? 'Voir les résultats →' : 'Titre suivant →'}</Button>
     </div>

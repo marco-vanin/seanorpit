@@ -1,14 +1,16 @@
 import { Button } from '../ui/Button'
-import { C } from '../../theme'
+import { C, slotColor } from '../../theme'
 import { accuracyPct, gradeFor } from '../../game/scoring'
 import type { Mode } from '../../game/modes'
+import type { Matchup } from '../../game/matchups'
 
 /**
- * Mode-aware results. Classique / Blitz are framed "X / 10" with the accuracy
- * grade; Mort subite is framed as a run length ("Série de X"). Two actions:
- * Rejouer (same mode) and Retour à l'accueil.
+ * Matchup + mode-aware results. Classique is framed "X / 10" with the accuracy
+ * grade; Mort subite is framed as a run length ("Série de X"). Curated
+ * shows a persisted record; custom shows none. Two actions: Rejouer and Accueil.
  */
 export function ResultsScreen({
+  matchup,
   mode,
   score,
   total,
@@ -17,6 +19,7 @@ export function ResultsScreen({
   onPlayAgain,
   onHome,
 }: {
+  matchup: Matchup
   mode: Mode
   score: number
   total: number
@@ -26,14 +29,18 @@ export function ResultsScreen({
   onHome: () => void
 }) {
   const endless = mode.questions === 'endless'
+  const isCustom = matchup.source === 'custom'
   const accuracy = accuracyPct(score, total)
   const grade = gradeFor(accuracy)
+  // Custom duels persist no best; treat it as 0 so no record is ever claimed.
+  const effectiveBest = isCustom ? 0 : best
+  const bestDisplay = effectiveBest > 0 ? effectiveBest : '—'
 
   // Mort subite headline message, run-length based.
   const endlessMsg =
     score === 0
       ? 'Éliminé d’entrée — réessaie.'
-      : score >= best && best > 0
+      : score >= effectiveBest && effectiveBest > 0
         ? 'Nouveau record ! 🔥'
         : `${score} bonne${score > 1 ? 's' : ''} réponse${score > 1 ? 's' : ''} avant la faute.`
 
@@ -50,6 +57,24 @@ export function ResultsScreen({
         }}
       >
         {mode.icon} {mode.label} · terminé
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+          fontSize: 'clamp(16px, 5vw, 22px)',
+          fontWeight: 700,
+          letterSpacing: -0.5,
+          marginBottom: 24,
+        }}
+      >
+        <span style={{ color: slotColor('a') }}>{matchup.a.name}</span>
+        <span style={{ fontFamily: C.monoFont, fontSize: 12, color: C.muted4 }}>or</span>
+        <span style={{ color: slotColor('b') }}>{matchup.b.name}</span>
       </div>
 
       {endless ? (
@@ -102,13 +127,13 @@ export function ResultsScreen({
         {endless ? (
           <>
             <Stat value={score} label="Cette série" color={C.gold} />
-            <Stat value={best} label="Record" />
+            <Stat value={bestDisplay} label={isCustom ? 'Éphémère' : 'Record'} />
           </>
         ) : (
           <>
             <Stat value={`${accuracy}%`} label="Précision" />
             <Stat value={bestStreak} label="Meilleure série" color={C.gold} />
-            <Stat value={best} label="Record" />
+            <Stat value={bestDisplay} label={isCustom ? 'Éphémère' : 'Record'} />
           </>
         )}
       </div>

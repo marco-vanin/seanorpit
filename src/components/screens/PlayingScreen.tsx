@@ -14,11 +14,14 @@ interface PlayingScreenProps {
   timerEnabled: boolean
   timeLeft: number
   seconds: number
-  /** Audible-clip cap (Blitz): shapes the hint copy. undefined = full clip. */
-  clipSeconds?: number
+  /** Slot A / B artist names + accent colors from the active matchup. */
+  nameA: string
+  nameB: string
+  accentA: string
+  accentB: string
   onToggle: () => void
-  onGuessSean: () => void
-  onGuessPit: () => void
+  onGuessA: () => void
+  onGuessB: () => void
   hasAudio: boolean
   loading: boolean
   blocked: boolean
@@ -38,10 +41,13 @@ export function PlayingScreen({
   timerEnabled,
   timeLeft,
   seconds,
-  clipSeconds,
+  nameA,
+  nameB,
+  accentA,
+  accentB,
   onToggle,
-  onGuessSean,
-  onGuessPit,
+  onGuessA,
+  onGuessB,
   hasAudio,
   loading,
   blocked,
@@ -56,14 +62,11 @@ export function PlayingScreen({
   const timePct = seconds ? Math.max(0, (timeLeft / seconds) * 100) : 100
   const timerColor = timeLeft <= Math.max(3, seconds * 0.25) ? C.pit : C.text
 
-  // Blitz plays the clip once then falls silent on purpose — the hint stays
-  // neutral (never "error"-shaped) even after the audio stops.
   let playHint: string
   if (!hasAudio) playHint = 'Extrait indisponible — fie-toi à ton instinct'
   else if (loading) playHint = 'Chargement de l’extrait…'
   else if (blocked) playHint = 'Touche ▶ pour lancer l’extrait'
   else if (!playing) playHint = 'En pause'
-  else if (clipSeconds !== undefined) playHint = `Extrait ${clipSeconds} s · écoute bien`
   else playHint = 'Lecture en cours — extrait 30 s'
 
   return (
@@ -205,22 +208,22 @@ export function PlayingScreen({
         }}
       >
         <ChoiceButton
-          label="Sean Paul"
+          label={nameA}
           option="Option A"
-          accent={C.sean}
+          accent={accentA}
           hoverBg="#14181a"
-          onClick={onGuessSean}
+          onClick={onGuessA}
           locked={selected !== null}
-          flashColor={selected === 'sean' ? flashColor : null}
+          flashColor={selected === 'a' ? flashColor : null}
         />
         <ChoiceButton
-          label="Pitbull"
+          label={nameB}
           option="Option B"
-          accent={C.pit}
+          accent={accentB}
           hoverBg="#191614"
-          onClick={onGuessPit}
+          onClick={onGuessB}
           locked={selected !== null}
-          flashColor={selected === 'pit' ? flashColor : null}
+          flashColor={selected === 'b' ? flashColor : null}
         />
       </div>
     </div>

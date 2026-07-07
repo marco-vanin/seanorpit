@@ -1,14 +1,21 @@
 import type { CSSProperties } from 'react'
-import { C } from '../../theme'
-import { MODE_LIST, type Mode } from '../../game/modes'
-import { bestForMode } from '../../game/useGame'
+import { Button } from '../ui/Button'
+import { C, slotColor } from '../../theme'
+import { CURATED, type Matchup } from '../../game/matchups'
 
 /**
- * Mode-select hub at `/`. Title + pitch + one card per mode (icon, label,
- * one-line rule, per-mode best). Tap a card → start that mode. Mobile-first,
- * single column; the grid just relaxes the gap on wider screens.
+ * Home hub at `/`. "Blind Duel" headline + pitch, a primary "Créer un duel" CTA
+ * (custom is the star), then a "Duels populaires" section with one card per
+ * curated matchup ("«A» or «B»" in slot colors). Mobile-first, single column,
+ * `clamp()` type.
  */
-export function HomeScreen({ onSelect }: { onSelect: (mode: Mode) => void }) {
+export function HomeScreen({
+  onSelectMatchup,
+  onCustom,
+}: {
+  onSelectMatchup: (matchup: Matchup) => void
+  onCustom: () => void
+}) {
   return (
     <div style={{ textAlign: 'center', animation: 'floatIn .5s ease both' }}>
       <div
@@ -18,74 +25,59 @@ export function HomeScreen({ onSelect }: { onSelect: (mode: Mode) => void }) {
           letterSpacing: 4,
           textTransform: 'uppercase',
           color: C.muted2,
-          marginBottom: 24,
+          marginBottom: 18,
         }}
       >
         Blindtest audio · Devine l'artiste
       </div>
 
-      <div
+      <h1
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 'clamp(14px, 5vw, 28px)',
-          marginBottom: 16,
-          flexWrap: 'wrap',
+          fontSize: 'clamp(44px, 15vw, 88px)',
+          fontWeight: 700,
+          lineHeight: 1,
+          letterSpacing: -3,
+          margin: '0 0 16px',
         }}
       >
-        <span
-          style={{
-            fontSize: 'clamp(34px, 11vw, 60px)',
-            fontWeight: 700,
-            lineHeight: 1,
-            letterSpacing: -2,
-            color: C.sean,
-          }}
-        >
-          Sean Paul
-        </span>
-        <span
-          style={{
-            fontFamily: C.monoFont,
-            fontSize: 20,
-            fontWeight: 600,
-            color: C.muted5,
-            border: `1.5px solid ${C.border2}`,
-            borderRadius: 999,
-            width: 52,
-            height: 52,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          or
-        </span>
-        <span
-          style={{
-            fontSize: 'clamp(34px, 11vw, 60px)',
-            fontWeight: 700,
-            lineHeight: 1,
-            letterSpacing: -2,
-            color: C.pit,
-          }}
-        >
-          Pitbull
-        </span>
-      </div>
+        Blind Duel
+      </h1>
 
       <p
         style={{
           maxWidth: 460,
-          margin: '0 auto 36px',
+          margin: '0 auto 30px',
           color: C.muted,
           fontSize: 'clamp(15px, 4.4vw, 17px)',
           lineHeight: 1.5,
         }}
       >
-        Sean Paul ou Pitbull ? À toi de trancher. Choisis ton mode de jeu.
+        Deux artistes, un extrait, une seule bonne réponse. Compose ton duel ou lance-toi sur un
+        classique.
       </p>
+
+      <Button
+        onClick={onCustom}
+        aria-label="Créer un duel personnalisé"
+        style={{ width: '100%', maxWidth: 460, margin: '0 auto 40px', display: 'block' }}
+      >
+        ✨ Créer un duel
+      </Button>
+
+      <div
+        style={{
+          fontFamily: C.monoFont,
+          fontSize: 12,
+          letterSpacing: 3,
+          textTransform: 'uppercase',
+          color: C.muted3,
+          textAlign: 'left',
+          maxWidth: 460,
+          margin: '0 auto 14px',
+        }}
+      >
+        Duels populaires
+      </div>
 
       <div
         style={{
@@ -97,34 +89,37 @@ export function HomeScreen({ onSelect }: { onSelect: (mode: Mode) => void }) {
           textAlign: 'left',
         }}
       >
-        {MODE_LIST.map((mode) => (
-          <ModeCard key={mode.key} mode={mode} onSelect={onSelect} />
+        {CURATED.map((matchup) => (
+          <MatchupCard
+            key={matchup.id}
+            matchup={matchup}
+            onClick={() => onSelectMatchup(matchup)}
+          />
         ))}
       </div>
     </div>
   )
 }
 
-function ModeCard({ mode, onSelect }: { mode: Mode; onSelect: (mode: Mode) => void }) {
-  const best = bestForMode(mode)
+function MatchupCard({ matchup, onClick }: { matchup: Matchup; onClick: () => void }) {
   const base: CSSProperties = {
     cursor: 'pointer',
     fontFamily: C.sansFont,
     display: 'flex',
-    alignItems: 'center',
-    gap: 16,
+    flexDirection: 'column',
+    gap: 4,
     width: '100%',
     textAlign: 'left',
     background: C.surface,
     border: `1.5px solid ${C.border}`,
     borderRadius: 18,
-    padding: '18px 20px',
+    padding: '20px 22px',
     transition: 'border-color .15s, background .15s, transform .15s',
   }
   return (
     <button
-      onClick={() => onSelect(mode)}
-      aria-label={`Jouer en mode ${mode.label}`}
+      onClick={onClick}
+      aria-label={`Jouer le duel ${matchup.a.name} contre ${matchup.b.name}`}
       style={base}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = C.muted4
@@ -137,39 +132,42 @@ function ModeCard({ mode, onSelect }: { mode: Mode; onSelect: (mode: Mode) => vo
         e.currentTarget.style.transform = 'none'
       }}
     >
-      <span style={{ fontSize: 34, lineHeight: 1, flexShrink: 0 }} aria-hidden>
-        {mode.icon}
-      </span>
-      <span style={{ flex: 1, minWidth: 0 }}>
+      <span
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          fontSize: 'clamp(22px, 6.5vw, 28px)',
+          fontWeight: 700,
+          letterSpacing: -1,
+          lineHeight: 1.1,
+        }}
+      >
+        <span style={{ color: slotColor('a') }}>{matchup.a.name}</span>
         <span
           style={{
-            display: 'block',
-            fontSize: 21,
+            fontFamily: C.monoFont,
+            fontSize: 13,
             fontWeight: 600,
-            color: C.text,
-            marginBottom: 3,
+            color: C.muted4,
+            textTransform: 'lowercase',
           }}
         >
-          {mode.label}
+          or
         </span>
-        <span style={{ display: 'block', fontSize: 14, color: C.muted }}>{mode.rule}</span>
+        <span style={{ color: slotColor('b') }}>{matchup.b.name}</span>
       </span>
       <span
         style={{
-          flexShrink: 0,
-          textAlign: 'right',
           fontFamily: C.monoFont,
-          fontSize: 11,
+          fontSize: 12,
           letterSpacing: 1,
-          textTransform: 'uppercase',
           color: C.muted3,
-          lineHeight: 1.5,
+          textTransform: 'uppercase',
         }}
       >
-        Record
-        <span style={{ display: 'block', fontSize: 18, fontWeight: 600, color: C.gold }}>
-          {best > 0 ? best : '—'}
-        </span>
+        2 modes de jeu →
       </span>
     </button>
   )
