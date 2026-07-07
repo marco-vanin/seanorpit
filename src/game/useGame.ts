@@ -155,17 +155,21 @@ export function useGame(): Game {
   useEffect(() => {
     if (!showTimer) return
     if (state.screen !== 'playing' || state.selected !== null) return
+    // Pausing the clip pauses the countdown too — freeze the timer while paused.
+    if (!state.playing) return
     if (state.timeLeft <= 0) {
       answerRef.current(null)
       return
     }
     const id = window.setTimeout(() => {
       setState((s) =>
-        s.screen === 'playing' && s.selected === null ? { ...s, timeLeft: s.timeLeft - 1 } : s,
+        s.screen === 'playing' && s.selected === null && s.playing
+          ? { ...s, timeLeft: s.timeLeft - 1 }
+          : s,
       )
     }, 1000)
     return () => window.clearTimeout(id)
-  }, [showTimer, state.screen, state.selected, state.timeLeft])
+  }, [showTimer, state.screen, state.selected, state.playing, state.timeLeft])
 
   const song: Song | null = state.order.length ? (SONGS[state.order[state.qIndex]] ?? null) : null
   const correct = !!song && state.selected === song.a
