@@ -60,7 +60,7 @@ export function HomeScreen({ onSelect }: { onSelect: (mode: Mode) => void }) {
             justifyContent: 'center',
           }}
         >
-          vs
+          or
         </span>
         <span
           style={{
