@@ -15,6 +15,11 @@ import { dirname, resolve } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(here, '../src/game/previews.json')
+const ART_OUT = resolve(here, '../src/game/artwork.json')
+
+/** Rewrite the iTunes `…/{NxN}bb.jpg` size segment (mirror of upscaleArtwork). */
+const upscaleArtwork = (url, size = 600) =>
+  url ? url.replace(/\/\d+x\d+bb\./, `/${size}x${size}bb.`) : url
 
 // Single source of truth, shared with src/game/matchups.ts.
 const MATCHUPS = JSON.parse(await readFile(resolve(here, '../src/game/matchups.data.json'), 'utf8'))
@@ -50,10 +55,13 @@ function pickBest(results, artist, title) {
 }
 
 const out = {}
+const artOut = {}
 const summary = []
 for (const matchup of MATCHUPS) {
   const artistFor = { a: matchup.a.name, b: matchup.b.name }
   const bucket = {}
+  // First successful hit's artwork per side becomes that artist's image.
+  const art = {}
   let ok = 0
   for (const s of matchup.songs) {
     const artist = artistFor[s.side]
@@ -63,6 +71,8 @@ for (const matchup of MATCHUPS) {
       if (hit?.previewUrl) {
         bucket[s.t] = hit.previewUrl
         ok++
+        // Capture the representative artwork for this side (no extra API call).
+        if (!art[s.side] && hit.artworkUrl100) art[s.side] = upscaleArtwork(hit.artworkUrl100)
         console.log(`✓ [${matchup.id}] ${artist} — ${s.t}  →  ${hit.trackName} (${hit.artistName})`)
       } else {
         console.warn(`✗ [${matchup.id}] no preview: ${artist} — ${s.t}`)
@@ -73,9 +83,16 @@ for (const matchup of MATCHUPS) {
     await new Promise((r) => setTimeout(r, 200))
   }
   out[matchup.id] = bucket
-  summary.push(`${matchup.id}: ${ok}/${matchup.songs.length}`)
+  artOut[matchup.id] = art
+  const gotA = art.a ? '✓' : '✗'
+  const gotB = art.b ? '✓' : '✗'
+  summary.push(
+    `${matchup.id}: ${ok}/${matchup.songs.length} previews · artwork a:${gotA} b:${gotB}`,
+  )
 }
 
 await writeFile(OUT, JSON.stringify(out, null, 2) + '\n')
+await writeFile(ART_OUT, JSON.stringify(artOut, null, 2) + '\n')
 console.log(`\nWrote previews → ${OUT}`)
+console.log(`Wrote artwork  → ${ART_OUT}`)
 for (const line of summary) console.log(`  ${line}`)

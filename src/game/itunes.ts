@@ -1,4 +1,5 @@
 import type { Matchup, Side, Song } from './matchups'
+import { upscaleArtwork } from './matchups'
 
 /**
  * Live custom-duel builder over the iTunes Search/Lookup API.
@@ -112,8 +113,9 @@ export async function searchArtists(term: string): Promise<ArtistHit[]> {
     byId.set(r.artistId, {
       artistId: r.artistId,
       artistName: r.artistName,
+      // Upscale the 100px thumb so dropdown rows + filled slots stay crisp.
+      artworkUrl: r.artworkUrl100 ? upscaleArtwork(r.artworkUrl100, 300) : undefined,
       genre: r.primaryGenreName || undefined,
-      artworkUrl: r.artworkUrl100 || undefined,
     })
   }
 
@@ -273,8 +275,8 @@ export async function buildCustomMatchup(a: ArtistHit, b: ArtistHit): Promise<Bu
     matchup: {
       id: 'custom',
       source: 'custom',
-      a: { name: a.artistName },
-      b: { name: b.artistName },
+      a: { name: a.artistName, image: a.artworkUrl ? upscaleArtwork(a.artworkUrl) : undefined },
+      b: { name: b.artistName, image: b.artworkUrl ? upscaleArtwork(b.artworkUrl) : undefined },
       songs,
     },
   }

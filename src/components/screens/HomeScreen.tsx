@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Button } from '../ui/Button'
+import { Artwork } from '../ui/Artwork'
 import { C, slotColor } from '../../theme'
 import { CURATED, type Matchup } from '../../game/matchups'
 
@@ -103,18 +104,18 @@ export function HomeScreen({
 
 function MatchupCard({ matchup, onClick }: { matchup: Matchup; onClick: () => void }) {
   const base: CSSProperties = {
+    position: 'relative',
     cursor: 'pointer',
     fontFamily: C.sansFont,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
     width: '100%',
     textAlign: 'left',
     background: C.surface,
     border: `1.5px solid ${C.border}`,
     borderRadius: 18,
-    padding: '20px 22px',
-    transition: 'border-color .15s, background .15s, transform .15s',
+    padding: 0,
+    overflow: 'hidden',
+    minHeight: 'clamp(132px, 38vw, 168px)',
+    transition: 'border-color .15s, transform .15s',
   }
   return (
     <button
@@ -123,52 +124,96 @@ function MatchupCard({ matchup, onClick }: { matchup: Matchup; onClick: () => vo
       style={base}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = C.muted4
-        e.currentTarget.style.background = C.surface2
         e.currentTarget.style.transform = 'translateY(-2px)'
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = C.border
-        e.currentTarget.style.background = C.surface
         e.currentTarget.style.transform = 'none'
       }}
     >
-      <span
+      {/* Split album-art background: A left half, B right half. */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex' }}>
+        <Artwork
+          src={matchup.a.image}
+          name={matchup.a.name}
+          color={slotColor('a')}
+          size={120}
+          radius={0}
+          style={{ width: '50%', height: '100%', border: 'none' }}
+        />
+        <Artwork
+          src={matchup.b.image}
+          name={matchup.b.name}
+          color={slotColor('b')}
+          size={120}
+          radius={0}
+          style={{ width: '50%', height: '100%', border: 'none' }}
+        />
+      </div>
+
+      {/* Mandatory dark scrim for text legibility over any cover. */}
+      <div
+        aria-hidden
         style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(180deg, rgba(12,13,17,0.5) 0%, rgba(12,13,17,0.72) 55%, rgba(12,13,17,0.92) 100%)',
+        }}
+      />
+
+      {/* Foreground content. */}
+      <div
+        style={{
+          position: 'relative',
           display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          flexWrap: 'wrap',
-          fontSize: 'clamp(22px, 6.5vw, 28px)',
-          fontWeight: 700,
-          letterSpacing: -1,
-          lineHeight: 1.1,
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          minHeight: 'clamp(132px, 38vw, 168px)',
+          gap: 8,
+          padding: '20px 22px',
         }}
       >
-        <span style={{ color: slotColor('a') }}>{matchup.a.name}</span>
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            fontSize: 'clamp(22px, 6.5vw, 28px)',
+            fontWeight: 700,
+            letterSpacing: -1,
+            lineHeight: 1.1,
+            textShadow: '0 1px 12px rgba(0,0,0,0.6)',
+          }}
+        >
+          <span style={{ color: slotColor('a') }}>{matchup.a.name}</span>
+          <span
+            style={{
+              fontFamily: C.monoFont,
+              fontSize: 13,
+              fontWeight: 600,
+              color: C.muted,
+              textTransform: 'lowercase',
+            }}
+          >
+            or
+          </span>
+          <span style={{ color: slotColor('b') }}>{matchup.b.name}</span>
+        </span>
         <span
           style={{
             fontFamily: C.monoFont,
-            fontSize: 13,
-            fontWeight: 600,
-            color: C.muted4,
-            textTransform: 'lowercase',
+            fontSize: 12,
+            letterSpacing: 1,
+            color: C.muted,
+            textTransform: 'uppercase',
+            textShadow: '0 1px 8px rgba(0,0,0,0.6)',
           }}
         >
-          or
+          2 modes de jeu →
         </span>
-        <span style={{ color: slotColor('b') }}>{matchup.b.name}</span>
-      </span>
-      <span
-        style={{
-          fontFamily: C.monoFont,
-          fontSize: 12,
-          letterSpacing: 1,
-          color: C.muted3,
-          textTransform: 'uppercase',
-        }}
-      >
-        2 modes de jeu →
-      </span>
+      </div>
     </button>
   )
 }

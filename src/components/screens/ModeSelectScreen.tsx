@@ -1,7 +1,8 @@
 import { C, slotColor } from '../../theme'
-import type { Matchup } from '../../game/matchups'
+import type { Matchup, Side } from '../../game/matchups'
 import type { Mode } from '../../game/modes'
 import { ModeCards } from './ModeCards'
+import { Artwork } from '../ui/Artwork'
 
 /**
  * Curated mode-select at `/duel/:matchupId`. The two artist names as a header
@@ -52,7 +53,7 @@ export function ModeSelectScreen({
   )
 }
 
-/** "«A» or «B»" in slot colors — shared header. */
+/** "«A» or «B»" in slot colors with each artist's artwork — shared header. */
 export function MatchupHeader({ matchup }: { matchup: Matchup }) {
   return (
     <div
@@ -65,17 +66,7 @@ export function MatchupHeader({ matchup }: { matchup: Matchup }) {
         flexWrap: 'wrap',
       }}
     >
-      <span
-        style={{
-          fontSize: 'clamp(28px, 9vw, 46px)',
-          fontWeight: 700,
-          lineHeight: 1,
-          letterSpacing: -1.5,
-          color: slotColor('a'),
-        }}
-      >
-        {matchup.a.name}
-      </span>
+      <HeaderSide matchup={matchup} side="a" />
       <span
         style={{
           fontFamily: C.monoFont,
@@ -94,16 +85,43 @@ export function MatchupHeader({ matchup }: { matchup: Matchup }) {
       >
         or
       </span>
+      <HeaderSide matchup={matchup} side="b" />
+    </div>
+  )
+}
+
+/** One side of the header: artwork above the artist name, in the slot color. */
+function HeaderSide({ matchup, side }: { matchup: Matchup; side: Side }) {
+  const artist = matchup[side]
+  const accent = slotColor(side)
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 10,
+        minWidth: 0,
+      }}
+    >
+      <Artwork
+        src={artist.image}
+        name={artist.name}
+        color={accent}
+        size={72}
+        radius={16}
+        style={{ border: `1.5px solid ${accent}` }}
+      />
       <span
         style={{
-          fontSize: 'clamp(28px, 9vw, 46px)',
+          fontSize: 'clamp(24px, 8vw, 40px)',
           fontWeight: 700,
           lineHeight: 1,
           letterSpacing: -1.5,
-          color: slotColor('b'),
+          color: accent,
         }}
       >
-        {matchup.b.name}
+        {artist.name}
       </span>
     </div>
   )
