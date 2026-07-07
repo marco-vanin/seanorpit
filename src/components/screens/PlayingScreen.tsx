@@ -8,10 +8,14 @@ interface PlayingScreenProps {
   total: number
   score: number
   streak: number
+  /** Endless mode (Mort subite): the HUD hides the fixed "/ total". */
+  endless: boolean
   playing: boolean
   timerEnabled: boolean
   timeLeft: number
   seconds: number
+  /** Audible-clip cap (Blitz): shapes the hint copy. undefined = full clip. */
+  clipSeconds?: number
   onToggle: () => void
   onGuessSean: () => void
   onGuessPit: () => void
@@ -29,10 +33,12 @@ export function PlayingScreen({
   total,
   score,
   streak,
+  endless,
   playing,
   timerEnabled,
   timeLeft,
   seconds,
+  clipSeconds,
   onToggle,
   onGuessSean,
   onGuessPit,
@@ -50,11 +56,15 @@ export function PlayingScreen({
   const timePct = seconds ? Math.max(0, (timeLeft / seconds) * 100) : 100
   const timerColor = timeLeft <= Math.max(3, seconds * 0.25) ? C.pit : C.text
 
+  // Blitz plays the clip once then falls silent on purpose — the hint stays
+  // neutral (never "error"-shaped) even after the audio stops.
   let playHint: string
   if (!hasAudio) playHint = 'Extrait indisponible — fie-toi à ton instinct'
   else if (loading) playHint = 'Chargement de l’extrait…'
   else if (blocked) playHint = 'Touche ▶ pour lancer l’extrait'
-  else playHint = playing ? 'Lecture en cours — extrait 30 s' : 'En pause'
+  else if (!playing) playHint = 'En pause'
+  else if (clipSeconds !== undefined) playHint = `Extrait ${clipSeconds} s · écoute bien`
+  else playHint = 'Lecture en cours — extrait 30 s'
 
   return (
     <div style={{ animation: 'floatIn .35s ease both' }}>
@@ -71,7 +81,8 @@ export function PlayingScreen({
         <div
           style={{ fontSize: 13, letterSpacing: 2, color: C.muted2, textTransform: 'uppercase' }}
         >
-          Titre <span style={{ color: C.text }}>{qNumber}</span> / {total}
+          Titre <span style={{ color: C.text }}>{qNumber}</span>
+          {endless ? '' : ` / ${total}`}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13 }}>
           <div style={{ color: C.muted2 }}>

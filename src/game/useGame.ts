@@ -1,38 +1,55 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SONGS, type ArtistKey, type Song } from './songs'
+import type { Mode } from './modes'
 
-/** Round configuration. */
-export const GAME_CONFIG = {
-  questionsPerRound: 10,
-  // Match the full 30s preview clip so you never time out before the song ends.
-  secondsPerQuestion: 30,
-  showTimer: true,
-} as const
-
-export type Screen = 'home' | 'playing' | 'reveal' | 'results'
+export type Screen = 'playing' | 'reveal' | 'results'
 /** The player's choice: an artist, a timeout, or nothing yet. */
 export type Selection = ArtistKey | 'timeout' | null
 
 /** Suspense beat between tapping an answer and the reveal mounting (ms). */
 export const REVEAL_DELAY_MS = 450
 
-const BEST_KEY = 'spvp_best'
+const LEGACY_BEST_KEY = 'spvp_best'
 const MUTED_KEY = 'spvp_muted'
 
-function readBest(): number {
+/**
+ * Read the best for a mode. One-time migration: if Classique has no stored best
+ * yet but the legacy single `spvp_best` exists, seed Classique from it (and
+ * persist it under the new key). `spvp_best` is never written again.
+ */
+function readBestFor(mode: Mode): number {
   try {
-    return parseInt(localStorage.getItem(BEST_KEY) || '0', 10) || 0
+    const raw = localStorage.getItem(mode.bestKey)
+    if (raw !== null) return parseInt(raw, 10) || 0
+    if (mode.key === 'classique') {
+      const legacy = localStorage.getItem(LEGACY_BEST_KEY)
+      if (legacy !== null) {
+        const v = parseInt(legacy, 10) || 0
+        try {
+          localStorage.setItem(mode.bestKey, String(v))
+        } catch {
+          /* ignore — private mode / storage disabled */
+        }
+        return v
+      }
+    }
+    return 0
   } catch {
     return 0
   }
 }
 
-function writeBest(value: number): void {
+function writeBestFor(mode: Mode, value: number): void {
   try {
-    localStorage.setItem(BEST_KEY, String(value))
+    localStorage.setItem(mode.bestKey, String(value))
   } catch {
     /* ignore — private mode / storage disabled */
   }
+}
+
+/** Read the persisted best for a mode without starting a run (home cards). */
+export function bestForMode(mode: Mode): number {
+  return readBestFor(mode)
 }
 
 function readMuted(): boolean {
@@ -61,6 +78,7 @@ function shuffle<T>(arr: readonly T[]): T[] {
 }
 
 interface GameState {
+  mode: Mode | null
   screen: Screen
   order: number[]
   qIndex: number
@@ -74,14 +92,40 @@ interface GameState {
   muted: boolean
 }
 
+/** Round length for a state: fixed count, or the shuffled endless-pool size. */
+function totalFor(s: GameState): number {
+  if (!s.mode) return 0
+  return s.mode.questions === 'endless' ? s.order.length : Math.min(s.mode.questions, SONGS.length)
+}
+
+/**
+ * Whether the run ends after the current (answered) question. Used by both the
+ * reveal button label (`isLast`) and `next()`. Only meaningful once a choice is
+ * locked in for Mort subite's wrong-answer branch; the finite/endless branches
+ * are purely positional.
+ */
+function runEndsFor(s: GameState): boolean {
+  const mode = s.mode
+  if (!mode) return false
+  const total = totalFor(s)
+  const song = SONGS[s.order[s.qIndex]]
+  const answerCorrect = !!song && s.selected === song.a
+  const answeredWrong = s.selected !== null && !answerCorrect
+  const finiteLast = mode.questions !== 'endless' && s.qIndex + 1 >= total
+  const endlessLast = mode.questions === 'endless' && s.qIndex + 1 >= s.order.length
+  return (mode.endOnWrong && answeredWrong) || finiteLast || endlessLast
+}
+
 export interface Game {
   state: GameState
+  mode: Mode | null
   total: number
   seconds: number
   timerEnabled: boolean
   song: Song | null
   correct: boolean
   qNumber: number
+  /** True when the current answer ends the run (per-mode; see `runEndsFor`). */
   isLast: boolean
   /** Current player choice during the reveal beat (and reveal screen). */
   selected: Selection
@@ -90,7 +134,7 @@ export interface Game {
   /** Streak celebration tier: 0 none, 1 (streak≥3), 2 (streak≥5). */
   streakTier: 0 | 1 | 2
   muted: boolean
-  start: () => void
+  start: (mode: Mode) => void
   guessSean: () => void
   guessPit: () => void
   next: () => void
@@ -100,11 +144,9 @@ export interface Game {
 }
 
 export function useGame(): Game {
-  const { questionsPerRound, secondsPerQuestion, showTimer } = GAME_CONFIG
-  const total = Math.min(questionsPerRound, SONGS.length)
-
   const [state, setState] = useState<GameState>(() => ({
-    screen: 'home',
+    mode: null,
+    screen: 'playing',
     order: [],
     qIndex: 0,
     score: 0,
@@ -113,14 +155,19 @@ export function useGame(): Game {
     playing: true,
     selected: null,
     timeLeft: 0,
-    best: readBest(),
+    best: 0,
     muted: readMuted(),
   }))
 
-  const start = useCallback(() => {
-    const order = shuffle(SONGS.map((_, i) => i)).slice(0, total)
+  const start = useCallback((mode: Mode) => {
+    const indices = SONGS.map((_, i) => i)
+    const order =
+      mode.questions === 'endless'
+        ? shuffle(indices)
+        : shuffle(indices).slice(0, Math.min(mode.questions, SONGS.length))
     setState((s) => ({
       ...s,
+      mode,
       screen: 'playing',
       order,
       qIndex: 0,
@@ -129,13 +176,14 @@ export function useGame(): Game {
       bestStreak: 0,
       selected: null,
       playing: true,
-      timeLeft: secondsPerQuestion,
+      timeLeft: mode.timerSeconds,
+      best: readBestFor(mode),
     }))
-  }, [total, secondsPerQuestion])
+  }, [])
 
   const answer = useCallback((choice: Selection) => {
     setState((s) => {
-      if (s.selected !== null) return s
+      if (!s.mode || s.selected !== null) return s
       const song = SONGS[s.order[s.qIndex]]
       const correct = !!song && choice === song.a
       const streak = correct ? s.streak + 1 : 0
@@ -158,9 +206,10 @@ export function useGame(): Game {
 
   const next = useCallback(() => {
     setState((s) => {
-      if (s.qIndex + 1 >= s.order.length) {
+      if (!s.mode) return s
+      if (runEndsFor(s)) {
         const best = Math.max(s.best, s.score)
-        writeBest(best)
+        writeBestFor(s.mode, best)
         return { ...s, screen: 'results', best }
       }
       return {
@@ -169,10 +218,10 @@ export function useGame(): Game {
         qIndex: s.qIndex + 1,
         selected: null,
         playing: true,
-        timeLeft: secondsPerQuestion,
+        timeLeft: s.mode.timerSeconds,
       }
     })
-  }, [secondsPerQuestion])
+  }, [])
 
   const togglePlay = useCallback(() => {
     setState((s) => ({ ...s, playing: !s.playing }))
@@ -186,14 +235,38 @@ export function useGame(): Game {
     })
   }, [])
 
-  const playAgain = useCallback(() => start(), [start])
+  const playAgain = useCallback(() => {
+    setState((s) => {
+      if (!s.mode) return s
+      const mode = s.mode
+      const indices = SONGS.map((_, i) => i)
+      const order =
+        mode.questions === 'endless'
+          ? shuffle(indices)
+          : shuffle(indices).slice(0, Math.min(mode.questions, SONGS.length))
+      return {
+        ...s,
+        mode,
+        screen: 'playing',
+        order,
+        qIndex: 0,
+        score: 0,
+        streak: 0,
+        bestStreak: 0,
+        selected: null,
+        playing: true,
+        timeLeft: mode.timerSeconds,
+        best: readBestFor(mode),
+      }
+    })
+  }, [])
 
   // Per-question countdown. Ticks once a second while a question is live; on
-  // reaching zero it auto-answers as a timeout.
+  // reaching zero it auto-answers as a timeout. Inert until a mode is started.
   const answerRef = useRef(answer)
   answerRef.current = answer
   useEffect(() => {
-    if (!showTimer) return
+    if (!state.mode) return
     if (state.screen !== 'playing' || state.selected !== null) return
     // Pausing the clip pauses the countdown too — freeze the timer while paused.
     if (!state.playing) return
@@ -203,13 +276,13 @@ export function useGame(): Game {
     }
     const id = window.setTimeout(() => {
       setState((s) =>
-        s.screen === 'playing' && s.selected === null && s.playing
+        s.mode && s.screen === 'playing' && s.selected === null && s.playing
           ? { ...s, timeLeft: s.timeLeft - 1 }
           : s,
       )
     }, 1000)
     return () => window.clearTimeout(id)
-  }, [showTimer, state.screen, state.selected, state.playing, state.timeLeft])
+  }, [state.mode, state.screen, state.selected, state.playing, state.timeLeft])
 
   // Reveal transition. Once a choice is locked in (`selected !== null`) the
   // screen stays 'playing' for the suspense beat, then floats to 'reveal'.
@@ -231,13 +304,14 @@ export function useGame(): Game {
 
   return {
     state,
-    total,
-    seconds: secondsPerQuestion,
-    timerEnabled: showTimer,
+    mode: state.mode,
+    total: totalFor(state),
+    seconds: state.mode?.timerSeconds ?? 0,
+    timerEnabled: true,
     song,
     correct,
     qNumber: state.qIndex + 1,
-    isLast: state.qIndex + 1 >= state.order.length,
+    isLast: runEndsFor(state),
     selected: state.selected,
     answerCorrect: correct,
     streakTier,
