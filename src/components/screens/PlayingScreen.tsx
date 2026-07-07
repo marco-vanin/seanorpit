@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Waveform } from '../Waveform'
 import { C } from '../../theme'
+import type { Selection } from '../../game/useGame'
 
 interface PlayingScreenProps {
   qNumber: number
@@ -17,6 +18,10 @@ interface PlayingScreenProps {
   hasAudio: boolean
   loading: boolean
   blocked: boolean
+  selected: Selection
+  answerCorrect: boolean
+  muted: boolean
+  onToggleMute: () => void
 }
 
 export function PlayingScreen({
@@ -34,7 +39,14 @@ export function PlayingScreen({
   hasAudio,
   loading,
   blocked,
+  selected,
+  answerCorrect,
+  muted,
+  onToggleMute,
 }: PlayingScreenProps) {
+  // Result color of the picked button during the suspense beat, mirroring the
+  // reveal: green when correct, red-orange when wrong. Timeout → no flash.
+  const flashColor = answerCorrect ? C.sean : C.pit
   const timePct = seconds ? Math.max(0, (timeLeft / seconds) * 100) : 100
   const timerColor = timeLeft <= Math.max(3, seconds * 0.25) ? C.pit : C.text
 
@@ -61,13 +73,31 @@ export function PlayingScreen({
         >
           Titre <span style={{ color: C.text }}>{qNumber}</span> / {total}
         </div>
-        <div style={{ display: 'flex', gap: 24, fontSize: 13 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13 }}>
           <div style={{ color: C.muted2 }}>
             Score <span style={{ color: C.text, fontWeight: 600 }}>{score}</span>
           </div>
           <div style={{ color: C.muted2 }}>
             Série <span style={{ color: C.gold, fontWeight: 600 }}>{streak}</span>
           </div>
+          <button
+            onClick={onToggleMute}
+            aria-label={muted ? 'Activer le son' : 'Couper le son'}
+            aria-pressed={muted}
+            style={{
+              cursor: 'pointer',
+              flexShrink: 0,
+              background: 'transparent',
+              border: 'none',
+              padding: 4,
+              lineHeight: 1,
+              fontSize: 18,
+              color: C.text,
+              opacity: muted ? 0.55 : 1,
+            }}
+          >
+            {muted ? '🔇' : '🔊'}
+          </button>
         </div>
       </div>
 
@@ -169,6 +199,8 @@ export function PlayingScreen({
           accent={C.sean}
           hoverBg="#14181a"
           onClick={onGuessSean}
+          locked={selected !== null}
+          flashColor={selected === 'sean' ? flashColor : null}
         />
         <ChoiceButton
           label="Pitbull"
@@ -176,6 +208,8 @@ export function PlayingScreen({
           accent={C.pit}
           hoverBg="#191614"
           onClick={onGuessPit}
+          locked={selected !== null}
+          flashColor={selected === 'pit' ? flashColor : null}
         />
       </div>
     </div>
@@ -188,19 +222,27 @@ function ChoiceButton({
   accent,
   hoverBg,
   onClick,
+  locked,
+  flashColor,
 }: {
   label: string
   option: string
   accent: string
   hoverBg: string
   onClick: () => void
+  locked: boolean
+  /** When set, this button is the picked choice and flashes its result color. */
+  flashColor: string | null
 }) {
+  // During the suspense beat the picked button shows its result color; every
+  // button is inert (no hover swap, no pointer) once a choice is locked in.
+  const flashBg = (color: string) => `color-mix(in oklab, ${color} 16%, ${C.surface})`
   const base: CSSProperties = {
-    cursor: 'pointer',
+    cursor: locked ? 'default' : 'pointer',
     fontFamily: C.sansFont,
     textAlign: 'left',
-    background: C.surface,
-    border: `1.5px solid ${C.border}`,
+    background: flashColor ? flashBg(flashColor) : C.surface,
+    border: `1.5px solid ${flashColor ?? C.border}`,
     borderRadius: 16,
     padding: '22px 24px',
     transition: 'border-color .15s, background .15s',
@@ -208,12 +250,15 @@ function ChoiceButton({
   return (
     <button
       onClick={onClick}
+      disabled={locked}
       style={base}
       onMouseEnter={(e) => {
+        if (locked) return
         e.currentTarget.style.borderColor = accent
         e.currentTarget.style.background = hoverBg
       }}
       onMouseLeave={(e) => {
+        if (locked) return
         e.currentTarget.style.borderColor = C.border
         e.currentTarget.style.background = C.surface
       }}

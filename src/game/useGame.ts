@@ -13,7 +13,11 @@ export type Screen = 'home' | 'playing' | 'reveal' | 'results'
 /** The player's choice: an artist, a timeout, or nothing yet. */
 export type Selection = ArtistKey | 'timeout' | null
 
+/** Suspense beat between tapping an answer and the reveal mounting (ms). */
+export const REVEAL_DELAY_MS = 450
+
 const BEST_KEY = 'spvp_best'
+const MUTED_KEY = 'spvp_muted'
 
 function readBest(): number {
   try {
@@ -26,6 +30,22 @@ function readBest(): number {
 function writeBest(value: number): void {
   try {
     localStorage.setItem(BEST_KEY, String(value))
+  } catch {
+    /* ignore — private mode / storage disabled */
+  }
+}
+
+function readMuted(): boolean {
+  try {
+    return localStorage.getItem(MUTED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function writeMuted(value: boolean): void {
+  try {
+    localStorage.setItem(MUTED_KEY, value ? '1' : '0')
   } catch {
     /* ignore — private mode / storage disabled */
   }
@@ -51,6 +71,7 @@ interface GameState {
   selected: Selection
   timeLeft: number
   best: number
+  muted: boolean
 }
 
 export interface Game {
@@ -62,11 +83,19 @@ export interface Game {
   correct: boolean
   qNumber: number
   isLast: boolean
+  /** Current player choice during the reveal beat (and reveal screen). */
+  selected: Selection
+  /** Whether the current `selected` choice was correct. */
+  answerCorrect: boolean
+  /** Streak celebration tier: 0 none, 1 (streak≥3), 2 (streak≥5). */
+  streakTier: 0 | 1 | 2
+  muted: boolean
   start: () => void
   guessSean: () => void
   guessPit: () => void
   next: () => void
   togglePlay: () => void
+  toggleMute: () => void
   playAgain: () => void
 }
 
@@ -85,6 +114,7 @@ export function useGame(): Game {
     selected: null,
     timeLeft: 0,
     best: readBest(),
+    muted: readMuted(),
   }))
 
   const start = useCallback(() => {
@@ -109,10 +139,12 @@ export function useGame(): Game {
       const song = SONGS[s.order[s.qIndex]]
       const correct = !!song && choice === song.a
       const streak = correct ? s.streak + 1 : 0
+      // NOTE: screen stays 'playing' during the suspense beat — the reveal
+      // transition effect flips it to 'reveal' after REVEAL_DELAY_MS. Setting
+      // `playing: false` here hard-stops the clip immediately.
       return {
         ...s,
         selected: choice ?? 'timeout',
-        screen: 'reveal',
         playing: false,
         score: correct ? s.score + 1 : s.score,
         streak,
@@ -146,6 +178,14 @@ export function useGame(): Game {
     setState((s) => ({ ...s, playing: !s.playing }))
   }, [])
 
+  const toggleMute = useCallback(() => {
+    setState((s) => {
+      const muted = !s.muted
+      writeMuted(muted)
+      return { ...s, muted }
+    })
+  }, [])
+
   const playAgain = useCallback(() => start(), [start])
 
   // Per-question countdown. Ticks once a second while a question is live; on
@@ -171,8 +211,23 @@ export function useGame(): Game {
     return () => window.clearTimeout(id)
   }, [showTimer, state.screen, state.selected, state.playing, state.timeLeft])
 
+  // Reveal transition. Once a choice is locked in (`selected !== null`) the
+  // screen stays 'playing' for the suspense beat, then floats to 'reveal'.
+  // During this window the countdown effect above early-returns (selected set
+  // + playing false), so `timeLeft` is untouched and the clip never resumes.
+  useEffect(() => {
+    if (state.screen !== 'playing' || state.selected === null) return
+    const id = window.setTimeout(() => {
+      setState((s) =>
+        s.screen === 'playing' && s.selected !== null ? { ...s, screen: 'reveal' } : s,
+      )
+    }, REVEAL_DELAY_MS)
+    return () => window.clearTimeout(id)
+  }, [state.screen, state.selected])
+
   const song: Song | null = state.order.length ? (SONGS[state.order[state.qIndex]] ?? null) : null
   const correct = !!song && state.selected === song.a
+  const streakTier: 0 | 1 | 2 = state.streak >= 5 ? 2 : state.streak >= 3 ? 1 : 0
 
   return {
     state,
@@ -183,11 +238,16 @@ export function useGame(): Game {
     correct,
     qNumber: state.qIndex + 1,
     isLast: state.qIndex + 1 >= state.order.length,
+    selected: state.selected,
+    answerCorrect: correct,
+    streakTier,
+    muted: state.muted,
     start,
     guessSean,
     guessPit,
     next,
     togglePlay,
+    toggleMute,
     playAgain,
   }
 }

@@ -8,17 +8,26 @@ export function RevealScreen({
   selected,
   song,
   isLast,
+  streakTier,
+  streak,
   onNext,
 }: {
   correct: boolean
   selected: Selection
   song: Song | null
   isLast: boolean
+  streakTier: 0 | 1 | 2
+  streak: number
   onNext: () => void
 }) {
   const resultLabel = correct ? 'Correct' : selected === 'timeout' ? 'Temps écoulé' : 'Raté'
   const resultColor = correct ? C.sean : C.pit
   const resultBg = correct ? 'oklch(0.78 0.15 155 / 0.14)' : 'oklch(0.78 0.15 55 / 0.14)'
+
+  // Hype block only on a correct reveal that reached tier 1+ (streak ≥ 3).
+  const showHype = correct && streakTier >= 1
+  const hypeHeadline = streakTier === 2 ? 'EN FEU 🔥🔥🔥' : 'EN FEU 🔥'
+  const hypeSub = streakTier === 2 ? `${streak} d’affilée !!` : `Série de ${streak} !`
 
   return (
     <div style={{ textAlign: 'center', animation: 'floatIn .35s ease both' }}>
@@ -35,6 +44,42 @@ export function RevealScreen({
       >
         {resultLabel}
       </div>
+
+      {showHype && (
+        <div
+          style={{
+            marginBottom: 24,
+            padding: '18px 20px',
+            borderRadius: 16,
+            background: 'oklch(0.82 0.14 85 / 0.12)',
+            border: `1px solid ${C.gold}`,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: C.monoFont,
+              fontSize: 'clamp(20px, 7vw, 30px)',
+              fontWeight: 700,
+              letterSpacing: 3,
+              textTransform: 'uppercase',
+              color: C.gold,
+            }}
+          >
+            {hypeHeadline}
+          </div>
+          <div
+            style={{
+              fontFamily: C.monoFont,
+              fontSize: 'clamp(12px, 3.5vw, 15px)',
+              letterSpacing: 1,
+              color: C.gold,
+              marginTop: 6,
+            }}
+          >
+            {hypeSub}
+          </div>
+        </div>
+      )}
 
       <div
         style={{

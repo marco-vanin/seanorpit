@@ -1,6 +1,8 @@
-import { useGame } from './game/useGame'
+import { useEffect, useRef } from 'react'
+import { useGame, type Selection } from './game/useGame'
 import { useAudioPlayer } from './game/useAudioPlayer'
 import { previewFor } from './game/previews'
+import { unlockAudio, playSting } from './game/stings'
 import { HomeScreen } from './components/screens/HomeScreen'
 import { PlayingScreen } from './components/screens/PlayingScreen'
 import { RevealScreen } from './components/screens/RevealScreen'
@@ -14,7 +16,50 @@ export function App() {
   // Play the current track's 30s clip while the question is live (never on
   // reveal/results, so the answer isn't spoiled by the audio continuing).
   const clipUrl = state.screen === 'playing' && game.song ? previewFor(game.song.t) : undefined
-  const audio = useAudioPlayer(clipUrl, state.screen === 'playing' && state.playing)
+  const audio = useAudioPlayer(clipUrl, state.screen === 'playing' && state.playing, state.muted)
+
+  // Fire the timeout sting once when `selected` transitions null → 'timeout'.
+  // (sean/pit stings fire at tap time from the gesture handlers below, so iOS
+  // Safari has already unlocked the AudioContext for them.)
+  const prevSelected = useRef<Selection>(null)
+  useEffect(() => {
+    const prev = prevSelected.current
+    prevSelected.current = state.selected
+    if (prev === null && state.selected === 'timeout') {
+      playSting('timeout', state.muted)
+    }
+  }, [state.selected, state.muted])
+
+  const handleGuessSean = () => {
+    unlockAudio()
+    if (state.selected === null) {
+      playSting(game.song?.a === 'sean' ? 'correct' : 'wrong', state.muted)
+    }
+    game.guessSean()
+  }
+
+  const handleGuessPit = () => {
+    unlockAudio()
+    if (state.selected === null) {
+      playSting(game.song?.a === 'pit' ? 'correct' : 'wrong', state.muted)
+    }
+    game.guessPit()
+  }
+
+  const handleStart = () => {
+    unlockAudio()
+    game.start()
+  }
+
+  const handleToggle = () => {
+    unlockAudio()
+    game.togglePlay()
+  }
+
+  const handleToggleMute = () => {
+    unlockAudio()
+    game.toggleMute()
+  }
 
   return (
     <div
@@ -31,7 +76,7 @@ export function App() {
     >
       <div style={{ width: '100%', maxWidth: 940 }}>
         {state.screen === 'home' && (
-          <HomeScreen best={state.best} total={game.total} onStart={game.start} />
+          <HomeScreen best={state.best} total={game.total} onStart={handleStart} />
         )}
 
         {state.screen === 'playing' && (
@@ -44,12 +89,16 @@ export function App() {
             timerEnabled={game.timerEnabled}
             timeLeft={state.timeLeft}
             seconds={game.seconds}
-            onToggle={game.togglePlay}
-            onGuessSean={game.guessSean}
-            onGuessPit={game.guessPit}
+            onToggle={handleToggle}
+            onGuessSean={handleGuessSean}
+            onGuessPit={handleGuessPit}
             hasAudio={audio.hasAudio && !audio.error}
             loading={audio.hasAudio && !audio.ready && !audio.error}
             blocked={audio.blocked}
+            selected={game.selected}
+            answerCorrect={game.answerCorrect}
+            muted={state.muted}
+            onToggleMute={handleToggleMute}
           />
         )}
 
@@ -59,6 +108,8 @@ export function App() {
             selected={state.selected}
             song={game.song}
             isLast={game.isLast}
+            streakTier={game.streakTier}
+            streak={state.streak}
             onNext={game.next}
           />
         )}

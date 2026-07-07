@@ -16,7 +16,11 @@ export interface AudioStatus {
  * `src` changes per question; `playing` mirrors the game's play/pause. The clip
  * loops so it keeps playing for the whole question, and never reveals the title.
  */
-export function useAudioPlayer(src: string | undefined, playing: boolean): AudioStatus {
+export function useAudioPlayer(
+  src: string | undefined,
+  playing: boolean,
+  muted: boolean,
+): AudioStatus {
   const ref = useRef<HTMLAudioElement | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
@@ -59,6 +63,13 @@ export function useAudioPlayer(src: string | undefined, playing: boolean): Audio
       el.removeEventListener('error', onError)
     }
   }, [src])
+
+  // Mirror the master mute onto the element (music obeys the master mute).
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.muted = muted
+  }, [muted])
 
   // Reflect play/pause.
   useEffect(() => {
