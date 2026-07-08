@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '../ui/Button'
 import { C, slotColor } from '../../theme'
 import { accuracyPct, gradeFor } from '../../game/scoring'
+import { duelShareUrl, shareDuel } from '../../game/share'
 import type { Mode } from '../../game/modes'
 import type { Matchup } from '../../game/matchups'
 
 /**
  * Matchup + mode-aware results, framed as a shareable score card. Classique is
  * "X / 10" with the accuracy grade; Mort subite is a run length ("Série de X").
- * Curated shows a persisted record; custom shows none. The card can be shared
- * (Web Share API) or copied to the clipboard; then Rejouer / Accueil.
+ * Curated shows a persisted record; custom shows none. The score can be copied
+ * to the clipboard, and a custom duel's link shared; then Rejouer / Accueil.
  */
 export function ResultsScreen({
   matchup,
@@ -30,12 +31,23 @@ export function ResultsScreen({
   onPlayAgain: () => void
   onHome: () => void
 }) {
-  const [copied, setCopied] = useState(false)
+  // One toast area, message-driven so it serves both the score copy and the duel
+  // link copy (kept mounted while fading so the text doesn't blink out).
+  const [toastMsg, setToastMsg] = useState('')
+  const [toastOn, setToastOn] = useState(false)
   const timerRef = useRef<number | null>(null)
   useEffect(() => () => void (timerRef.current && window.clearTimeout(timerRef.current)), [])
+  const flashToast = (msg: string) => {
+    setToastMsg(msg)
+    setToastOn(true)
+    if (timerRef.current) window.clearTimeout(timerRef.current)
+    timerRef.current = window.setTimeout(() => setToastOn(false), 2200)
+  }
 
   const endless = mode.questions === 'endless'
   const isCustom = matchup.source === 'custom'
+  // Custom duels are shareable via their stateless artist-id link; curated aren't.
+  const duelUrl = isCustom ? duelShareUrl(matchup) : null
   const accuracy = accuracyPct(score, total)
   const grade = gradeFor(accuracy)
   // Custom duels persist no best; treat it as 0 so no record is ever claimed.
@@ -61,22 +73,13 @@ export function ResultsScreen({
     } catch {
       /* clipboard unavailable — the toast still confirms intent */
     }
-    setCopied(true)
-    if (timerRef.current) window.clearTimeout(timerRef.current)
-    timerRef.current = window.setTimeout(() => setCopied(false), 2200)
+    flashToast('✓ Copié dans le presse-papier')
   }
 
-  const doShare = () => {
-    const data = { title: 'Blind Duel', text: shareText }
-    try {
-      if (typeof navigator.share === 'function') {
-        navigator.share(data).catch(() => {})
-      } else {
-        doCopy()
-      }
-    } catch {
-      doCopy()
-    }
+  // Duel link share (custom only): copies the link (no native sheet) + toast.
+  const doShareDuel = async () => {
+    const outcome = await shareDuel(matchup)
+    if (outcome === 'copied') flashToast('✓ Lien copié')
   }
 
   return (
@@ -126,9 +129,13 @@ export function ResultsScreen({
               marginBottom: 18,
             }}
           >
-            <span style={{ color: slotColor('a') }}>{matchup.a.name}</span>
+            <span style={{ color: slotColor('a'), overflowWrap: 'anywhere' }}>
+              {matchup.a.name}
+            </span>
             <span style={{ fontFamily: C.monoFont, fontSize: 12, color: C.muted2 }}>or</span>
-            <span style={{ color: slotColor('b') }}>{matchup.b.name}</span>
+            <span style={{ color: slotColor('b'), overflowWrap: 'anywhere' }}>
+              {matchup.b.name}
+            </span>
           </div>
 
           {endless ? (
@@ -216,27 +223,29 @@ export function ResultsScreen({
           marginBottom: 12,
         }}
       >
-        <Button onClick={doShare}>📤 Partager la carte</Button>
-        <Button
-          onClick={doCopy}
-          style={{ background: 'transparent', color: C.text, border: `1.5px solid ${C.border2}` }}
-        >
-          📋 Copier le score
-        </Button>
+        <Button onClick={doCopy}>📋 Copier le score</Button>
+        {duelUrl && (
+          <Button
+            onClick={doShareDuel}
+            style={{ background: 'transparent', color: C.text, border: `1.5px solid ${C.border2}` }}
+          >
+            🔗 Partager ce duel
+          </Button>
+        )}
       </div>
       <div
         aria-live="polite"
         style={{
           fontFamily: C.monoFont,
           fontSize: 12,
-          color: C.sean,
+          color: C.slotA,
           marginBottom: 20,
           height: 16,
-          opacity: copied ? 1 : 0,
+          opacity: toastOn ? 1 : 0,
           transition: 'opacity .2s',
         }}
       >
-        ✓ Copié dans le presse-papier
+        {toastMsg}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>

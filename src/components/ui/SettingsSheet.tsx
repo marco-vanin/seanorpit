@@ -160,8 +160,8 @@ export function SettingsSheet({
               padding: '9px 16px',
               borderRadius: 10,
               background: 'transparent',
-              color: C.pit,
-              border: `1px solid ${C.pit}`,
+              color: C.bad,
+              border: `1px solid ${C.bad}`,
             }}
           >
             Réinitialiser

@@ -1,6 +1,6 @@
 /**
  * Game modes — one config map, one engine. Each mode carries its own round
- * length, timer, run-end rule, and localStorage best key. The engine
+ * length, timer, and run-end rule. The engine
  * (`useGame`) reads these off the active mode; nothing about a mode is
  * hardcoded elsewhere.
  */
@@ -26,8 +26,6 @@ export interface Mode {
   timerSeconds: number
   /** Mort subite: the first wrong/timeout answer ends the run. */
   endOnWrong: boolean
-  /** localStorage key holding this mode's best. */
-  bestKey: string
 }
 
 export const MODES: Record<ModeKey, Mode> = {
@@ -42,7 +40,6 @@ export const MODES: Record<ModeKey, Mode> = {
     questions: 10,
     timerSeconds: 30,
     endOnWrong: false,
-    bestKey: 'spvp_best_classique',
   },
   mortsubite: {
     key: 'mortsubite',
@@ -55,7 +52,6 @@ export const MODES: Record<ModeKey, Mode> = {
     questions: 'endless',
     timerSeconds: 30,
     endOnWrong: true,
-    bestKey: 'spvp_best_mortsubite',
   },
 }
 

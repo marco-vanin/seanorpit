@@ -14,6 +14,7 @@ export function RevealScreen({
   streakTier,
   streak,
   onNext,
+  onQuit,
 }: {
   correct: boolean
   selected: Selection
@@ -23,9 +24,11 @@ export function RevealScreen({
   streakTier: 0 | 1 | 2
   streak: number
   onNext: () => void
+  /** Abandon the run — opens the confirm dialog owned by the route. */
+  onQuit: () => void
 }) {
   const resultLabel = correct ? 'Correct' : selected === 'timeout' ? 'Temps écoulé' : 'Raté'
-  const resultColor = correct ? C.sean : C.pit
+  const resultColor = correct ? C.ok : C.bad
 
   // Hype block only on a correct reveal that reached tier 1+ (streak ≥ 3).
   const showHype = correct && streakTier >= 1
@@ -34,18 +37,72 @@ export function RevealScreen({
 
   return (
     <div style={{ textAlign: 'center', animation: 'floatIn .35s ease both' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 16 }}>
+        <button
+          onClick={onQuit}
+          aria-label="Quitter la partie"
+          style={{
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            fontFamily: C.monoFont,
+            fontSize: 12,
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            color: C.muted2,
+            background: 'transparent',
+            border: `1px solid ${C.border2}`,
+            borderRadius: 999,
+            padding: '5px 12px',
+            lineHeight: 1,
+          }}
+        >
+          <span aria-hidden>✕</span> Quitter
+        </button>
+      </div>
+
+      {/* Result badge circle + label. */}
       <div
         style={{
-          fontFamily: C.monoFont,
-          fontSize: 14,
-          letterSpacing: 3,
-          textTransform: 'uppercase',
-          color: resultColor,
-          marginBottom: 20,
-          fontWeight: 600,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 14,
+          marginBottom: 22,
         }}
       >
-        {resultLabel}
+        <span
+          aria-hidden
+          style={{
+            width: 76,
+            height: 76,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 38,
+            fontWeight: 700,
+            color: '#fff',
+            background: resultColor,
+            boxShadow: `0 0 0 8px color-mix(in oklab, ${resultColor} 22%, transparent), 0 10px 30px rgba(0,0,0,0.3)`,
+            animation: 'popIn .3s ease both',
+          }}
+        >
+          {correct ? '✓' : '✕'}
+        </span>
+        <div
+          style={{
+            fontFamily: C.monoFont,
+            fontSize: 15,
+            letterSpacing: 3,
+            textTransform: 'uppercase',
+            fontWeight: 700,
+            color: resultColor,
+          }}
+        >
+          {resultLabel}
+        </div>
       </div>
 
       {showHype && (
@@ -91,7 +148,10 @@ export function RevealScreen({
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 14,
-          marginBottom: 30,
+          marginBottom: 28,
+          maxWidth: 460,
+          marginLeft: 'auto',
+          marginRight: 'auto',
         }}
       >
         {(['a', 'b'] as Side[]).map((side) => {
@@ -152,6 +212,7 @@ export function RevealScreen({
               letterSpacing: -1,
               lineHeight: 1.05,
               marginBottom: 6,
+              overflowWrap: 'anywhere',
             }}
           >
             « {song?.title ?? ''} »
@@ -160,8 +221,9 @@ export function RevealScreen({
             style={{
               fontSize: 18,
               fontWeight: 600,
-              color: song ? sideColor(matchup, song.side) : C.text,
+              color: song ? C.ok : C.text,
               marginBottom: 4,
+              overflowWrap: 'anywhere',
             }}
           >
             {song ? matchup[song.side].name : ''}
@@ -176,9 +238,10 @@ export function RevealScreen({
 }
 
 /**
- * One artist in the reveal face-off. The correct side lights up (slot-color
- * border + glow + ✓ badge); the other is dimmed. A wrong player pick carries a
- * ✗ badge in its slot color. On a timeout neither side is marked wrong.
+ * One artist in the reveal face-off. The correct side lights up (green ok
+ * border + glow + ✓ badge + name); a wrong player pick lights up red (bad
+ * border + glow + ✕ badge + "Ton choix" marker). Other tiles are dimmed. On a
+ * timeout neither side is marked wrong.
  */
 function FaceoffTile({
   name,
@@ -194,88 +257,107 @@ function FaceoffTile({
   wrongPick: boolean
 }) {
   // Pin the dark palette locally so the artwork tile keeps its dark treatment
-  // (bright accents + white name over a dark scrim) even in light mode.
+  // (bright accents + white name over a dark scrim) even in light mode. Pin
+  // ok/bad too so the result colors stay correct on this always-dark tile.
+  const lit = correct || wrongPick
+  const litColor = correct ? C.ok : C.bad
   const box = {
     position: 'relative',
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
-    border: `1.5px solid ${correct ? accent : C.border}`,
-    boxShadow: correct ? `0 0 0 3px color-mix(in oklab, ${accent} 24%, transparent)` : 'none',
-    opacity: correct ? 1 : 0.5,
+    aspectRatio: '1 / 1',
+    border: `2px solid ${lit ? litColor : C.border}`,
+    boxShadow: lit ? `0 0 0 3px color-mix(in oklab, ${litColor} 24%, transparent)` : 'none',
+    opacity: lit ? 1 : 0.5,
     transition: 'opacity .2s',
     '--text': '#f2f3f7',
-    '--sean': 'oklch(0.78 0.15 155)',
-    '--pit': 'oklch(0.78 0.15 55)',
+    '--slot-a': 'oklch(0.7 0.19 268)',
+    '--slot-a-bright': 'oklch(0.78 0.16 268)',
+    '--slot-b': 'oklch(0.72 0.24 350)',
+    '--slot-b-bright': 'oklch(0.8 0.2 350)',
+    '--ok': 'oklch(0.74 0.17 152)',
+    '--bad': 'oklch(0.66 0.22 25)',
   } as CSSProperties
   const badge = correct ? '✓' : wrongPick ? '✕' : null
-  const badgeColor = correct ? accent : C.pit
   return (
     <div style={box}>
-      <div style={{ position: 'relative', minHeight: 'clamp(120px, 36vw, 160px)' }}>
-        <Artwork
-          src={image}
-          name={name}
-          color={accent}
-          size={160}
-          radius={0}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
-        />
-        <div
+      <Artwork
+        src={image}
+        name={name}
+        color={accent}
+        size={200}
+        radius={0}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(180deg, rgba(12,13,17,0) 45%, rgba(12,13,17,0.9))',
+        }}
+      />
+      {badge && (
+        <span
           aria-hidden
           style={{
             position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(180deg, rgba(12,13,17,0.35) 0%, rgba(12,13,17,0.7) 55%, rgba(12,13,17,0.94) 100%)',
-          }}
-        />
-        {badge && (
-          <span
-            aria-hidden
-            style={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              width: 30,
-              height: 30,
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 16,
-              fontWeight: 700,
-              color: C.bg,
-              background: badgeColor,
-              boxShadow: `0 0 12px ${badgeColor}`,
-            }}
-          >
-            {badge}
-          </span>
-        )}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
+            top: 12,
+            right: 12,
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-end',
-            padding: '16px 16px',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: correct ? 17 : 16,
+            fontWeight: 700,
+            color: '#fff',
+            background: litColor,
+            boxShadow: `0 0 14px ${litColor}`,
           }}
         >
-          <span
-            style={{
-              fontSize: 'clamp(17px, 5vw, 22px)',
-              fontWeight: 700,
-              letterSpacing: -0.5,
-              lineHeight: 1.1,
-              color: correct ? accent : C.text,
-              textShadow: '0 1px 12px rgba(0,0,0,0.7)',
-            }}
-          >
-            {name}
-          </span>
-        </div>
-      </div>
+          {badge}
+        </span>
+      )}
+      {wrongPick && (
+        <span
+          style={{
+            position: 'absolute',
+            left: 16,
+            bottom: 44,
+            fontFamily: C.monoFont,
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            color: C.bad,
+          }}
+        >
+          Ton choix
+        </span>
+      )}
+      <span
+        style={{
+          position: 'absolute',
+          left: 16,
+          bottom: 16,
+          right: 16,
+          fontSize: 'clamp(17px, 5vw, 22px)',
+          fontWeight: 700,
+          letterSpacing: -0.5,
+          lineHeight: 1.1,
+          color: '#fff',
+          textShadow: '0 1px 12px rgba(0,0,0,0.7)',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          overflowWrap: 'anywhere',
+        }}
+      >
+        {name}
+      </span>
     </div>
   )
 }

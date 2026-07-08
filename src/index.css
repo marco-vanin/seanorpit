@@ -25,10 +25,12 @@
   --border-3: #2c2f3a;
   --hairline: #1c1e27;
 
-  --sean: oklch(0.78 0.15 155); /* Sean Paul — green */
-  --sean-bright: oklch(0.82 0.13 155);
-  --pit: oklch(0.78 0.15 55); /* Pitbull — orange */
-  --pit-bright: oklch(0.82 0.13 55);
+  --slot-a: oklch(0.66 0.19 268); /* slot A accent — blue */
+  --slot-a-bright: oklch(0.74 0.16 268);
+  --slot-b: oklch(0.68 0.24 350); /* slot B accent — pink */
+  --slot-b-bright: oklch(0.75 0.2 350);
+  --ok: oklch(0.74 0.17 152); /* correct result — green */
+  --bad: oklch(0.65 0.22 25); /* wrong result — red */
   --gold: oklch(0.82 0.14 85); /* streak accent */
 
   --font-sans: 'Space Grotesk', system-ui, sans-serif;
@@ -59,11 +61,13 @@ html[data-theme='light'] {
   --border-3: #b6bcc9;
   --hairline: #e3e6ed;
 
-  --sean: oklch(0.47 0.13 155);
-  --sean-bright: oklch(0.42 0.13 155);
-  --pit: oklch(0.48 0.15 55);
-  --pit-bright: oklch(0.44 0.14 55);
-  --gold: oklch(0.48 0.1 85);
+  --slot-a: oklch(0.5 0.2 268);
+  --slot-a-bright: oklch(0.45 0.2 268);
+  --slot-b: oklch(0.52 0.23 350);
+  --slot-b-bright: oklch(0.47 0.22 350);
+  --ok: oklch(0.52 0.16 152);
+  --bad: oklch(0.53 0.22 25);
+  --gold: oklch(0.55 0.13 85);
 }
 
 * {
@@ -95,8 +99,22 @@ button {
 
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid var(--sean);
+  outline: 2px solid var(--slot-a);
   outline-offset: 2px;
+}
+
+/* Custom-duel builder: two search cards + "or", side by side on desktop,
+   stacked once there isn't room so the cards never get crushed. */
+.duel-slots {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+@media (max-width: 640px) {
+  .duel-slots {
+    grid-template-columns: 1fr;
+  }
 }
 
 @keyframes eq {

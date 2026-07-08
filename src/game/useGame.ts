@@ -9,39 +9,21 @@ export type Selection = Side | 'timeout' | null
 /** Suspense beat between tapping an answer and the reveal mounting (ms). */
 export const REVEAL_DELAY_MS = 450
 
-const MUTED_KEY = 'spvp_muted'
-const HINT_SEEN_KEY = 'spvp_hint_seen'
+// All persisted state lives under the app's `bd_` namespace.
+const MUTED_KEY = 'bd_muted'
+const HINT_SEEN_KEY = 'bd_hint_seen'
 
 /** localStorage best key for a curated (matchup, mode) pair. */
 function bestKeyFor(matchup: Matchup, mode: Mode): string {
-  return `spvp_best_${matchup.id}_${mode.key}`
+  return `bd_best_${matchup.id}_${mode.key}`
 }
 
-/**
- * Read the best for a (matchup, mode). Custom matchups persist nothing → 0.
- * One-time migration for `seanpit`: if the per-matchup key is unset but the
- * legacy per-mode key (`spvp_best_<modeKey>` == mode.bestKey) exists, seed the
- * new key from it. The legacy key is left untouched.
- */
+/** Read the best for a (matchup, mode). Custom matchups persist nothing → 0. */
 function readBestFor(matchup: Matchup, mode: Mode): number {
   if (matchup.source === 'custom') return 0
   try {
-    const key = bestKeyFor(matchup, mode)
-    const raw = localStorage.getItem(key)
-    if (raw !== null) return parseInt(raw, 10) || 0
-    if (matchup.id === 'seanpit') {
-      const legacy = localStorage.getItem(mode.bestKey)
-      if (legacy !== null) {
-        const v = parseInt(legacy, 10) || 0
-        try {
-          localStorage.setItem(key, String(v))
-        } catch {
-          /* ignore — private mode / storage disabled */
-        }
-        return v
-      }
-    }
-    return 0
+    const raw = localStorage.getItem(bestKeyFor(matchup, mode))
+    return raw !== null ? parseInt(raw, 10) || 0 : 0
   } catch {
     return 0
   }
@@ -63,16 +45,16 @@ export function bestFor(matchup: Matchup, mode: Mode): number {
 
 /**
  * Clear every persisted lifetime stat and record. Prefix-based (not a hardcoded
- * list) so all `spvp_life*` totals and every `spvp_best*` record — including
- * per-(matchup,mode) keys and legacy per-mode keys — are removed in one pass.
- * Theme (`bd_theme`), mute (`spvp_muted`) and the first-play hint
- * (`spvp_hint_seen`) are intentionally left untouched. Iterates a snapshot of
+ * list) so all `bd_life*` totals and every per-(matchup,mode) `bd_best*` record
+ * are removed in one pass.
+ * Theme (`bd_theme`), mute (`bd_muted`) and the first-play hint
+ * (`bd_hint_seen`) are intentionally left untouched. Iterates a snapshot of
  * the keys so deleting during the loop is safe. Guarded for private mode.
  */
 export function resetStats(): void {
   try {
     for (const key of Object.keys(localStorage)) {
-      if (key.startsWith('spvp_life') || key.startsWith('spvp_best')) {
+      if (key.startsWith('bd_life') || key.startsWith('bd_best')) {
         localStorage.removeItem(key)
       }
     }
@@ -117,10 +99,10 @@ function writeHintSeen(): void {
 // ── Lifetime stats (home strip) ─────────────────────────────────────────────
 // Cumulative across every finished game: games played, correct answers,
 // answered questions (for average accuracy), and the all-time best streak.
-const LIFE_GAMES_KEY = 'spvp_life_games'
-const LIFE_CORRECT_KEY = 'spvp_life_correct'
-const LIFE_ANSWERED_KEY = 'spvp_life_answered'
-const LIFE_RECSTREAK_KEY = 'spvp_life_recstreak'
+const LIFE_GAMES_KEY = 'bd_life_games'
+const LIFE_CORRECT_KEY = 'bd_life_correct'
+const LIFE_ANSWERED_KEY = 'bd_life_answered'
+const LIFE_RECSTREAK_KEY = 'bd_life_recstreak'
 
 function readInt(key: string): number {
   try {

@@ -11,11 +11,9 @@ import { Artwork } from '../ui/Artwork'
 export function ModeSelectScreen({
   matchup,
   onSelect,
-  onBack,
 }: {
   matchup: Matchup
   onSelect: (mode: Mode) => void
-  onBack: () => void
 }) {
   return (
     <div
@@ -26,23 +24,6 @@ export function ModeSelectScreen({
         margin: '0 auto',
       }}
     >
-      <button
-        onClick={onBack}
-        aria-label="Retour à l'accueil"
-        style={{
-          cursor: 'pointer',
-          background: 'transparent',
-          border: 'none',
-          color: C.muted2,
-          fontFamily: C.monoFont,
-          fontSize: 13,
-          letterSpacing: 1,
-          marginBottom: 20,
-        }}
-      >
-        ← Accueil
-      </button>
-
       <MatchupHeader matchup={matchup} />
 
       <p
@@ -126,6 +107,8 @@ function HeaderSide({ matchup, side }: { matchup: Matchup; side: Side }) {
           lineHeight: 1,
           letterSpacing: -1.5,
           color: accent,
+          maxWidth: '100%',
+          overflowWrap: 'anywhere',
         }}
       >
         {artist.name}

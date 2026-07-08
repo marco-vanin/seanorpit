@@ -1,7 +1,7 @@
 import { C } from '../theme'
 import matchupsData from './matchups.data.json'
 import previews from './previews.json'
-import artwork from './artwork.json'
+import photos from './photos.json'
 
 /** A slot in a matchup: A (green) vs B (orange). */
 export type Side = 'a' | 'b'
@@ -10,17 +10,10 @@ export interface ArtistSide {
   name: string
   /** Optional accent override; defaults to the slot accent (A green / B orange). */
   color?: string
-  /** Representative album artwork (curated: build-time; custom: selected hit), if resolved. */
+  /** Artist photo (Deezer, resolved by name; curated: build-time), if resolved. */
   image?: string
-}
-
-/**
- * Rewrite an iTunes artwork URL's `…/{NxN}bb.jpg` size segment (e.g. `100x100`)
- * to `{size}x{size}`. Any URL that doesn't match the iTunes pattern is returned
- * unchanged — safe to call on arbitrary strings.
- */
-export function upscaleArtwork(url: string, size = 600): string {
-  return url.replace(/\/\d+x\d+bb\./, `/${size}x${size}bb.`)
+  /** iTunes artist id — set for custom sides so the duel can be shared as a stateless link. */
+  artistId?: number
 }
 
 export interface Song {
@@ -54,22 +47,22 @@ interface RawMatchup {
 /** Build-time preview map, keyed { [matchupId]: { [title]: previewUrl } }. */
 const PREVIEWS = previews as Record<string, Record<string, string>>
 
-/** Build-time artwork map, keyed { [matchupId]: { a?, b? } } (upscaled 600). */
-const ARTWORK = artwork as Record<string, { a?: string; b?: string }>
+/** Build-time artist-photo map (Deezer), keyed { [matchupId]: { a?, b? } }. */
+const PHOTOS = photos as Record<string, { a?: string; b?: string }>
 
 /** Slot accent for a side: matchup override, else A = green, B = orange. */
 export function sideColor(matchup: Matchup, side: Side): string {
-  return matchup[side].color ?? (side === 'a' ? C.sean : C.pit)
+  return matchup[side].color ?? (side === 'a' ? C.slotA : C.slotB)
 }
 
 function buildCurated(raw: RawMatchup): Matchup {
   const previewMap = PREVIEWS[raw.id] ?? {}
-  const art = ARTWORK[raw.id] ?? {}
+  const photo = PHOTOS[raw.id] ?? {}
   return {
     id: raw.id,
     source: 'curated',
-    a: { ...raw.a, image: raw.a.image ?? art.a },
-    b: { ...raw.b, image: raw.b.image ?? art.b },
+    a: { ...raw.a, image: raw.a.image ?? photo.a },
+    b: { ...raw.b, image: raw.b.image ?? photo.b },
     songs: raw.songs.map((s) => ({
       title: s.t,
       side: s.side,

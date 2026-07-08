@@ -74,10 +74,10 @@ export function PlayingScreen({
   onQuit,
 }: PlayingScreenProps) {
   // Result color of the picked button during the suspense beat, mirroring the
-  // reveal: green when correct, red-orange when wrong. Timeout → no flash.
-  const flashColor = answerCorrect ? C.sean : C.pit
+  // reveal: green when correct, red when wrong. Timeout → no flash.
+  const flashColor = answerCorrect ? C.ok : C.bad
   const timePct = seconds ? Math.max(0, (timeLeft / seconds) * 100) : 100
-  const timerColor = timeLeft <= Math.max(3, seconds * 0.25) ? C.pit : C.text
+  const timerColor = timeLeft <= Math.max(3, seconds * 0.25) ? C.bad : C.text
 
   // The clip is live and playing normally — show the elapsed timecode; otherwise
   // fall back to a descriptive state (unavailable / loading / blocked).
@@ -92,7 +92,7 @@ export function PlayingScreen({
   else playHint = 'Lecture en cours — extrait 30 s'
 
   return (
-    <div style={{ animation: 'floatIn .35s ease both' }}>
+    <div style={{ animation: 'floatIn .35s ease both', maxWidth: 580, margin: '0 auto' }}>
       {/* HUD */}
       <div
         style={{
@@ -231,7 +231,7 @@ export function PlayingScreen({
                 width: 4,
                 height: 4,
                 borderRadius: '50%',
-                background: playing ? C.sean : C.muted2,
+                background: playing ? C.slotA : C.muted2,
               }}
             />
             <span style={{ textTransform: 'uppercase', letterSpacing: 2 }}>
@@ -297,8 +297,8 @@ export function PlayingScreen({
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: 16,
-          marginTop: showHint ? 12 : 22,
+          gap: 14,
+          marginTop: showHint ? 12 : 18,
         }}
       >
         <ArtistCard
@@ -402,18 +402,22 @@ function ArtistCard({
     fontFamily: C.sansFont,
     textAlign: 'left',
     background: '#0c0d11',
-    border: `1.5px solid ${flashColor ?? C.border}`,
-    borderRadius: 16,
+    border: `2px solid ${flashColor ?? C.border}`,
+    borderRadius: 18,
     padding: 0,
     overflow: 'hidden',
-    minHeight: 'clamp(128px, 40vw, 168px)',
+    aspectRatio: '1',
     boxShadow: flashColor
       ? `0 0 0 3px color-mix(in oklab, ${flashColor} 28%, transparent)`
       : 'none',
-    transition: 'border-color .15s, box-shadow .15s',
+    transition: 'border-color .15s, box-shadow .15s, transform .15s',
     '--text': '#f2f3f7',
-    '--sean': 'oklch(0.78 0.15 155)',
-    '--pit': 'oklch(0.78 0.15 55)',
+    '--slot-a': 'oklch(0.7 0.19 268)',
+    '--slot-a-bright': 'oklch(0.78 0.16 268)',
+    '--slot-b': 'oklch(0.72 0.24 350)',
+    '--slot-b-bright': 'oklch(0.8 0.2 350)',
+    '--ok': 'oklch(0.74 0.17 152)',
+    '--bad': 'oklch(0.66 0.22 25)',
   } as CSSProperties
   return (
     <button
@@ -424,13 +428,15 @@ function ArtistCard({
       onMouseEnter={(e) => {
         if (locked) return
         e.currentTarget.style.borderColor = accent
+        e.currentTarget.style.transform = 'translateY(-3px)'
       }}
       onMouseLeave={(e) => {
         if (locked) return
         e.currentTarget.style.borderColor = C.border
+        e.currentTarget.style.transform = 'none'
       }}
     >
-      {/* Candidate artwork as background, with placeholder fallback. */}
+      {/* Candidate artist photo as background, with placeholder fallback. */}
       <Artwork
         src={image}
         name={name}
@@ -440,71 +446,58 @@ function ArtistCard({
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
       />
 
-      {/* Dark scrim so the name stays readable over any cover. */}
+      {/* Dark scrim so the name stays readable over any photo. */}
       <div
         aria-hidden
         style={{
           position: 'absolute',
           inset: 0,
-          background:
-            'linear-gradient(180deg, rgba(12,13,17,0.35) 0%, rgba(12,13,17,0.7) 55%, rgba(12,13,17,0.94) 100%)',
+          background: 'linear-gradient(180deg, rgba(12,13,17,0) 42%, rgba(12,13,17,0.84) 100%)',
         }}
       />
 
-      {/* Corner badge echoing the A / B keyboard shortcut. */}
+      {/* Filled A / B badge (slot color), echoing the keyboard shortcut. */}
       <span
         aria-hidden
         style={{
           position: 'absolute',
           top: 12,
-          left: 14,
+          left: 12,
           fontFamily: C.monoFont,
-          fontSize: 11,
-          fontWeight: 600,
-          color: accent,
-          background: 'rgba(12,13,17,0.55)',
-          borderRadius: 6,
-          padding: '2px 7px',
+          fontSize: 12,
+          fontWeight: 700,
+          color: '#fff',
+          background: accent,
+          borderRadius: 8,
+          padding: '3px 9px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
         }}
       >
         {badge}
       </span>
 
-      {/* Foreground: slot dot + artist name, bottom-anchored. */}
-      <div
+      {/* Artist name, bottom-left. */}
+      <span
         style={{
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-end',
-          minHeight: 'clamp(128px, 40vw, 168px)',
-          gap: 8,
-          padding: '18px 18px',
+          position: 'absolute',
+          left: 16,
+          bottom: 16,
+          right: 16,
+          fontSize: 'clamp(18px, 5vw, 24px)',
+          fontWeight: 700,
+          letterSpacing: -0.5,
+          lineHeight: 1.1,
+          color: '#f2f3f7',
+          textShadow: '0 1px 12px rgba(0,0,0,0.7)',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          overflowWrap: 'anywhere',
         }}
       >
-        <span
-          aria-hidden
-          style={{
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            background: accent,
-            boxShadow: `0 0 10px ${accent}`,
-          }}
-        />
-        <span
-          style={{
-            fontSize: 'clamp(19px, 5.5vw, 24px)',
-            fontWeight: 700,
-            letterSpacing: -0.5,
-            lineHeight: 1.1,
-            color: C.text,
-            textShadow: '0 1px 12px rgba(0,0,0,0.7)',
-          }}
-        >
-          {name}
-        </span>
-      </div>
+        {name}
+      </span>
     </button>
   )
 }

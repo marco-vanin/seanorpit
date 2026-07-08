@@ -1,19 +1,22 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useGame, resetStats, type Game, type Selection } from './game/useGame'
 import { useAudioPlayer } from './game/useAudioPlayer'
 import { unlockAudio, playSting } from './game/stings'
 import { modeBySlug, type Mode } from './game/modes'
 import { matchupById, type Matchup, type Side } from './game/matchups'
+import { buildCustomMatchupByIds } from './game/itunes'
 import { HomeScreen } from './components/screens/HomeScreen'
 import { ModeSelectScreen } from './components/screens/ModeSelectScreen'
-import { CustomDuelScreen } from './components/screens/CustomDuelScreen'
+import { CustomDuelScreen, DuelReady } from './components/screens/CustomDuelScreen'
 import { PlayingScreen } from './components/screens/PlayingScreen'
 import { RevealScreen } from './components/screens/RevealScreen'
 import { ResultsScreen } from './components/screens/ResultsScreen'
+import { Button } from './components/ui/Button'
 import { RulesSheet } from './components/ui/RulesSheet'
 import { SettingsSheet } from './components/ui/SettingsSheet'
 import { ConfirmDialog } from './components/ui/ConfirmDialog'
+import { TopBar } from './components/ui/TopBar'
 import { applyTheme, readTheme, type ThemeMode } from './game/theme-mode'
 import { C, slotColor } from './theme'
 
@@ -31,28 +34,42 @@ function useGameContext(): Game {
   return game
 }
 
-/** Outer chrome: dark radial background + centered responsive column. */
+/**
+ * Outer chrome: dark radial background + a full-height responsive column. The
+ * top bar (if any) pins at the top; the routed content grows to fill and centers
+ * vertically in the remaining space, so short screens use the whole viewport
+ * height (balanced whitespace) instead of hugging the top.
+ */
 function Shell({ children }: { children: ReactNode }) {
   return (
     <div
       style={{
         minHeight: '100vh',
         width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 'clamp(20px, 5vw, 40px)',
         background: 'radial-gradient(120% 90% at 50% -10%, var(--bg-glow) 0%, var(--bg) 60%)',
         color: C.text,
       }}
     >
-      <div style={{ width: '100%', maxWidth: 940 }}>{children}</div>
+      <div
+        style={{
+          maxWidth: 940,
+          minHeight: '100vh',
+          margin: '0 auto',
+          padding: 'clamp(20px, 5vw, 40px)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {children}
+      </div>
     </div>
   )
 }
 
 export function App() {
   const game = useGame()
+  const location = useLocation()
+  const navigate = useNavigate()
   // The "Comment jouer" sheet is shared across routes (home + playing HUD), so
   // its open state lives here, above <Routes>.
   const [rulesOpen, setRulesOpen] = useState(false)
@@ -62,28 +79,49 @@ export function App() {
   // theme was already applied to <html> in main.tsx; we mirror it in state so
   // the segmented control reflects and drives it.
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const openSettings = () => setSettingsOpen(true)
   const [theme, setThemeState] = useState<ThemeMode>(readTheme)
   const setTheme = (mode: ThemeMode) => {
     applyTheme(mode)
     setThemeState(mode)
   }
 
+  // The persistent TopBar shows on every nav screen but is absent during
+  // gameplay (`/jouer/...`), where the playing/reveal HUD owns navigation.
+  const showTopBar = !location.pathname.startsWith('/jouer/')
+
   return (
     <GameContext.Provider value={game}>
       <Shell>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <HomeRoute onOpenRules={openRules} onOpenSettings={() => setSettingsOpen(true)} />
-            }
+        {showTopBar && (
+          <TopBar
+            onHome={() => navigate('/')}
+            onOpenRules={openRules}
+            onOpenSettings={openSettings}
           />
-          <Route path="/duel/custom" element={<CustomDuelRoute />} />
-          <Route path="/duel/:matchupId" element={<CuratedDuelRoute />} />
-          <Route path="/jouer/:matchup/:mode" element={<PlayRoute rulesOpen={rulesOpen} />} />
-          <Route path="/resultats" element={<ResultsRoute />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        )}
+        {/* Content fills the height below the bar and centers vertically. */}
+        <main
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
+          <Routes>
+            <Route path="/" element={<HomeRoute />} />
+            <Route path="/duel/custom" element={<CustomDuelRoute />} />
+            {/* Two segments — distinct from the one-segment /duel/custom and
+                /duel/:matchupId, so it never shadows them. */}
+            <Route path="/duel/:idA/:idB" element={<SharedDuelRoute />} />
+            <Route path="/duel/:matchupId" element={<CuratedDuelRoute />} />
+            <Route path="/jouer/:matchup/:mode" element={<PlayRoute rulesOpen={rulesOpen} />} />
+            <Route path="/resultats" element={<ResultsRoute />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
       </Shell>
       <RulesSheet open={rulesOpen} onClose={() => setRulesOpen(false)} />
       <SettingsSheet
@@ -100,20 +138,12 @@ export function App() {
   )
 }
 
-function HomeRoute({
-  onOpenRules,
-  onOpenSettings,
-}: {
-  onOpenRules: () => void
-  onOpenSettings: () => void
-}) {
+function HomeRoute() {
   const navigate = useNavigate()
   return (
     <HomeScreen
       onSelectMatchup={(matchup) => navigate(`/duel/${matchup.id}`)}
       onCustom={() => navigate('/duel/custom')}
-      onOpenRules={onOpenRules}
-      onOpenSettings={onOpenSettings}
     />
   )
 }
@@ -132,7 +162,7 @@ function CuratedDuelRoute() {
     navigate(`/jouer/${matchup.id}/${mode.slug}`)
   }
 
-  return <ModeSelectScreen matchup={matchup} onSelect={handleSelect} onBack={() => navigate('/')} />
+  return <ModeSelectScreen matchup={matchup} onSelect={handleSelect} />
 }
 
 function CustomDuelRoute() {
@@ -145,7 +175,110 @@ function CustomDuelRoute() {
     navigate(`/jouer/custom/${mode.slug}`)
   }
 
-  return <CustomDuelScreen onPlay={handlePlay} onBack={() => navigate('/')} />
+  return <CustomDuelScreen onPlay={handlePlay} />
+}
+
+/** True only for a bare positive integer (no signs, decimals, or leading text). */
+function isPositiveIntId(v: string | undefined): v is string {
+  return v !== undefined && /^\d+$/.test(v) && Number(v) > 0
+}
+
+/**
+ * Recipient of a shared custom duel at `/duel/:idA/:idB`. Guards the two ids to
+ * positive integers (else → home), then hands off to the keyed loader so a
+ * different id pair remounts and refetches cleanly.
+ */
+function SharedDuelRoute() {
+  const { idA, idB } = useParams()
+  if (!isPositiveIntId(idA) || !isPositiveIntId(idB)) return <Navigate to="/" replace />
+  return <SharedDuelLoader key={`${idA}/${idB}`} idA={Number(idA)} idB={Number(idB)} />
+}
+
+type SharedPhase =
+  { kind: 'loading' } | { kind: 'ready'; matchup: Matchup } | { kind: 'error'; message: string }
+
+/**
+ * Re-resolves both artist ids and rebuilds the matchup (reusing the exact
+ * `buildCustomMatchup` filter + ≥ 8 fairness via `buildCustomMatchupByIds`).
+ * Loading / preview / error are all first-class — never a blank screen. Picking
+ * a mode starts the shared game instance and navigates into play, exactly like
+ * the builder's ready state.
+ */
+function SharedDuelLoader({ idA, idB }: { idA: number; idB: number }) {
+  const game = useGameContext()
+  const navigate = useNavigate()
+  const [phase, setPhase] = useState<SharedPhase>({ kind: 'loading' })
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    setPhase({ kind: 'loading' })
+    buildCustomMatchupByIds(idA, idB)
+      .then((res) => {
+        if (cancelled) return
+        if (res.ok) setPhase({ kind: 'ready', matchup: res.matchup })
+        else setPhase({ kind: 'error', message: res.message })
+      })
+      .catch(() => {
+        if (!cancelled) setPhase({ kind: 'error', message: 'Problème de réseau — réessaie.' })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [idA, idB, attempt])
+
+  if (phase.kind === 'loading') {
+    return (
+      <div style={{ textAlign: 'center', animation: 'floatIn .45s ease both', padding: '60px 0' }}>
+        <div
+          style={{
+            fontFamily: C.monoFont,
+            fontSize: 13,
+            letterSpacing: 2,
+            textTransform: 'uppercase',
+            color: C.muted2,
+          }}
+        >
+          Chargement du duel…
+        </div>
+      </div>
+    )
+  }
+
+  if (phase.kind === 'error') {
+    return (
+      <div style={{ textAlign: 'center', animation: 'floatIn .45s ease both', padding: '40px 0' }}>
+        <div
+          style={{
+            maxWidth: 420,
+            margin: '0 auto 24px',
+            background: 'color-mix(in oklab, var(--bad) 12%, transparent)',
+            border: `1px solid ${C.bad}`,
+            borderRadius: 14,
+            padding: '16px 18px',
+            color: C.text,
+            fontSize: 15,
+            lineHeight: 1.45,
+          }}
+          role="alert"
+        >
+          {phase.message}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Button onClick={() => setAttempt((n) => n + 1)}>Réessayer</Button>
+        </div>
+      </div>
+    )
+  }
+
+  const matchup = phase.matchup
+  const handleSelect = (mode: Mode) => {
+    unlockAudio()
+    game.start(matchup, mode)
+    navigate(`/jouer/custom/${mode.slug}`)
+  }
+
+  return <DuelReady matchup={matchup} onSelect={handleSelect} />
 }
 
 function PlayRoute({ rulesOpen }: { rulesOpen: boolean }) {
@@ -246,8 +379,10 @@ function PlayRoute({ rulesOpen }: { rulesOpen: boolean }) {
     }
   }
 
-  if (state.screen === 'reveal') {
-    return (
+  // The abandon confirm is shared by both the playing HUD and the reveal screen,
+  // so render it alongside whichever screen is active.
+  const content =
+    state.screen === 'reveal' ? (
       <RevealScreen
         correct={game.correct}
         selected={state.selected}
@@ -257,12 +392,9 @@ function PlayRoute({ rulesOpen }: { rulesOpen: boolean }) {
         streakTier={game.streakTier}
         streak={state.streak}
         onNext={game.next}
+        onQuit={() => setQuitOpen(true)}
       />
-    )
-  }
-
-  return (
-    <>
+    ) : (
       <PlayingScreen
         qNumber={game.qNumber}
         total={game.total}
@@ -294,6 +426,11 @@ function PlayRoute({ rulesOpen }: { rulesOpen: boolean }) {
         onToggleMute={handleToggleMute}
         onQuit={() => setQuitOpen(true)}
       />
+    )
+
+  return (
+    <>
+      {content}
       <ConfirmDialog
         open={quitOpen}
         title="Abandonner la partie ?"

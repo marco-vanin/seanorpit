@@ -5,7 +5,7 @@ import { C } from '../../theme'
  * Shared themed confirm dialog, reusing the RulesSheet/SettingsSheet modal
  * chrome (centered card, blurred backdrop, floatIn/popIn). Renders nothing when
  * closed. Dismissed (cancel) by the backdrop, the Annuler button, or Escape.
- * The primary confirm reads danger (`C.pit`) when `danger`, else the filled
+ * The primary confirm reads danger (`C.bad`, red) when `danger`, else the filled
  * white button. Used for "Abandonner la partie ?" and "Réinitialiser mes stats ?".
  */
 export function ConfirmDialog({
@@ -107,7 +107,7 @@ export function ConfirmDialog({
               padding: '13px 16px',
               borderRadius: 12,
               border: 'none',
-              background: danger ? C.pit : C.text,
+              background: danger ? C.bad : C.text,
               color: danger ? '#0c0d11' : C.bg,
             }}
           >

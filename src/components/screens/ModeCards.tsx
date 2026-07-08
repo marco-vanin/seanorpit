@@ -20,7 +20,7 @@ export function ModeCards({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
         gap: 14,
         margin: '0 auto',
         textAlign: 'left',
@@ -44,7 +44,7 @@ function ModeCard({
 }) {
   const best = matchup.source === 'custom' ? 0 : bestFor(matchup, mode)
   // Classique reads green; Mort subite reads gold.
-  const accent = mode.endOnWrong ? C.gold : C.sean
+  const accent = mode.endOnWrong ? C.gold : C.slotA
   const recordValue =
     best <= 0
       ? '—'

@@ -10,11 +10,13 @@ export function accuracyPct(score: number, total: number): number {
   return total > 0 ? Math.round((score / total) * 100) : 0
 }
 
-/** French grade + accent color for a given accuracy. */
+/**
+ * French grade + accent color for a given accuracy. Deliberately artist-neutral
+ * so it fits any duel (custom included), not just the two artists.
+ */
 export function gradeFor(accuracy: number): Grade {
-  if (accuracy >= 90) return { label: 'Expert Worldwide certifié 🌎', color: C.sean }
-  if (accuracy >= 70)
-    return { label: 'Oreille affûtée — tu connais tes classiques.', color: C.sean }
-  if (accuracy >= 50) return { label: 'Solide. La moitié du dancefloor est à toi.', color: C.gold }
-  return { label: 'Pas ton style — retente ta chance.', color: C.muted }
+  if (accuracy >= 90) return { label: 'Oreille en or 🏆', color: C.slotA }
+  if (accuracy >= 70) return { label: 'Oreille affûtée 🎧', color: C.slotA }
+  if (accuracy >= 50) return { label: 'Pas mal — la moitié dans le mille.', color: C.gold }
+  return { label: 'À retravailler — retente ta chance.', color: C.muted }
 }
