@@ -1,40 +1,35 @@
-import type { ButtonHTMLAttributes, CSSProperties } from 'react'
-import { C } from '../../theme'
-
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  /** Extra inline style merged over the base primitive style. */
-  style?: CSSProperties
-}
+import type { ButtonHTMLAttributes } from 'react'
+import { cva, type VariantProps } from 'class-variance-authority'
+import { cn } from '@/utils/cn'
 
 /**
- * Primary call-to-action — the white pill button from the design.
- * Lifts on hover (matches the design's `translateY(-2px)`).
+ * Button primitive. `primary` is the design's white pill CTA; `ghost` is the
+ * transparent bordered variant used for secondary actions (share / home /
+ * back). Variants match the primitive's CURRENT looks exactly — `ghost` is the
+ * former inline `{ background:'transparent', color: text, border: '1.5px solid
+ * border-2' }` override. Hover lifts 2px (former `translateY(-2px)`).
  */
-export function Button({ style, onMouseEnter, onMouseLeave, ...props }: ButtonProps) {
-  return (
-    <button
-      {...props}
-      style={{
-        fontFamily: C.sansFont,
-        cursor: 'pointer',
-        border: 'none',
-        background: C.text,
-        color: C.bg,
-        fontSize: 17,
-        fontWeight: 600,
-        padding: '15px 38px',
-        borderRadius: 14,
-        transition: 'transform .15s ease',
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-2px)'
-        onMouseEnter?.(e)
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'none'
-        onMouseLeave?.(e)
-      }}
-    />
-  )
+const button = cva(
+  'cursor-pointer font-sans text-[17px] font-semibold rounded-[14px] transition-transform duration-150 ease-[ease] hover:-translate-y-0.5',
+  {
+    variants: {
+      variant: {
+        primary: 'border-none bg-text text-bg',
+        ghost: 'bg-transparent text-text border-[1.5px] border-border-2',
+      },
+      size: {
+        md: 'px-[38px] py-[15px]',
+      },
+    },
+    defaultVariants: {
+      variant: 'primary',
+      size: 'md',
+    },
+  },
+)
+
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof button>
+
+export function Button({ className, variant, size, ...props }: ButtonProps) {
+  return <button {...props} className={cn(button({ variant, size }), className)} />
 }

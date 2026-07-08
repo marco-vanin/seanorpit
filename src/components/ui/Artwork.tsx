@@ -1,5 +1,4 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { C } from '../../theme'
 
 /**
  * Album artwork with a graceful fallback. Renders a lazy `<img>` when `src` is
@@ -7,11 +6,15 @@ import { C } from '../../theme'
  * the artist's initial letter (muted background, slot-color accent). One
  * consistent artwork surface across the builder slots, search dropdown rows,
  * home cards, and the mode-select header.
+ *
+ * `size`, `radius` and `color` are runtime props (chosen per call site), so they
+ * stay as inline style / CSS values a static utility class can't express. The
+ * `style` override wins over the box defaults (call sites pass `border:'none'`).
  */
 export function Artwork({
   src,
   name,
-  color = C.muted4,
+  color = 'var(--muted-4)',
   size = 44,
   radius = 10,
   style,
@@ -34,8 +37,8 @@ export function Artwork({
     height: size,
     borderRadius: radius,
     objectFit: 'cover',
-    background: C.surface2,
-    border: `1px solid ${C.border}`,
+    background: 'var(--surface-2)',
+    border: '1px solid var(--border)',
     display: 'block',
     ...style,
   }
@@ -49,7 +52,7 @@ export function Artwork({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontFamily: C.monoFont,
+          fontFamily: 'var(--font-mono)',
           fontWeight: 600,
           fontSize: Math.max(14, Math.round(size * 0.4)),
           color,

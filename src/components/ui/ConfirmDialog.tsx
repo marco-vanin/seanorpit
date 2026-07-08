@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
-import { C } from '../../theme'
+import { cn } from '@/utils/cn'
 
 /**
  * Shared themed confirm dialog, reusing the RulesSheet/SettingsSheet modal
  * chrome (centered card, blurred backdrop, floatIn/popIn). Renders nothing when
  * closed. Dismissed (cancel) by the backdrop, the Annuler button, or Escape.
- * The primary confirm reads danger (`C.bad`, red) when `danger`, else the filled
+ * The primary confirm reads danger (`--bad`, red) when `danger`, else the filled
  * white button. Used for "Abandonner la partie ?" and "Réinitialiser mes stats ?".
  */
 export function ConfirmDialog({
@@ -45,71 +45,28 @@ export function ConfirmDialog({
       aria-modal="true"
       aria-label={title}
       onClick={onCancel}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 120,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(6, 7, 10, 0.6)',
-        backdropFilter: 'blur(8px)',
-        padding: 20,
-        animation: 'floatIn .2s ease both',
-      }}
+      className="fixed inset-0 z-[120] flex animate-[floatIn_0.2s_ease_both] items-center justify-center bg-[rgba(6,7,10,0.6)] p-5 backdrop-blur-lg"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 360,
-          background: C.surface2,
-          border: `1px solid ${C.border2}`,
-          borderRadius: 22,
-          padding: '26px 24px 22px',
-          boxShadow: '0 30px 80px rgba(0,0,0,0.35)',
-          animation: 'popIn .25s ease both',
-        }}
+        className="w-full max-w-[360px] animate-[popIn_0.25s_ease_both] rounded-[22px] border border-border-2 bg-surface-2 px-6 pt-[26px] pb-[22px] shadow-[0_30px_80px_rgba(0,0,0,0.35)]"
       >
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, letterSpacing: -0.4 }}>{title}</h2>
-        {body && (
-          <p style={{ margin: '10px 0 0', color: C.muted, fontSize: 14, lineHeight: 1.5 }}>
-            {body}
-          </p>
-        )}
+        <h2 className="m-0 text-[20px] font-bold tracking-[-0.4px]">{title}</h2>
+        {body && <p className="mt-[10px] mb-0 text-[14px] leading-[1.5] text-muted">{body}</p>}
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+        <div className="mt-6 flex gap-2.5">
           <button
             onClick={onCancel}
-            style={{
-              cursor: 'pointer',
-              flex: 1,
-              fontFamily: C.sansFont,
-              fontSize: 15,
-              fontWeight: 600,
-              padding: '13px 16px',
-              borderRadius: 12,
-              background: 'transparent',
-              color: C.text,
-              border: `1px solid ${C.border2}`,
-            }}
+            className="flex-1 cursor-pointer rounded-[12px] border border-border-2 bg-transparent px-4 py-[13px] font-sans text-[15px] font-semibold text-text"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            style={{
-              cursor: 'pointer',
-              flex: 1,
-              fontFamily: C.sansFont,
-              fontSize: 15,
-              fontWeight: 600,
-              padding: '13px 16px',
-              borderRadius: 12,
-              border: 'none',
-              background: danger ? C.bad : C.text,
-              color: danger ? '#0c0d11' : C.bg,
-            }}
+            className={cn(
+              'flex-1 cursor-pointer rounded-[12px] border-none px-4 py-[13px] font-sans text-[15px] font-semibold',
+              danger ? 'bg-bad text-[#0c0d11]' : 'bg-text text-bg',
+            )}
           >
             {confirmLabel}
           </button>

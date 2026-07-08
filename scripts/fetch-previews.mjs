@@ -3,9 +3,9 @@
  * Build-time data fetcher for the blindtest. Runs in Node (no browser CORS /
  * JSONP constraints), throttled at 200ms between calls. Writes three files:
  *
- *   src/game/previews.json   { [matchupId]: { [title]: previewUrl } }  (iTunes)
- *   src/game/photos.json     { [matchupId]: { a?, b? } }               (Deezer)
- *   src/game/suggested.json  ArtistHit[] with photoUrl                 (Deezer)
+ *   src/features/duel/previews.json   { [matchupId]: { [title]: previewUrl } }  (iTunes)
+ *   src/features/duel/photos.json     { [matchupId]: { a?, b? } }               (Deezer)
+ *   src/features/duel/suggested.json  ArtistHit[] with photoUrl                 (Deezer)
  *
  * iTunes supplies the 30s preview clips; Deezer supplies real ARTIST PHOTOS
  * (resolved by name) — iTunes album art is no longer used anywhere.
@@ -17,12 +17,14 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const OUT = resolve(here, '../src/game/previews.json')
-const PHOTOS_OUT = resolve(here, '../src/game/photos.json')
-const SUGGESTED_OUT = resolve(here, '../src/game/suggested.json')
+const OUT = resolve(here, '../src/features/duel/previews.json')
+const PHOTOS_OUT = resolve(here, '../src/features/duel/photos.json')
+const SUGGESTED_OUT = resolve(here, '../src/features/duel/suggested.json')
 
-// Single source of truth, shared with src/game/matchups.ts.
-const MATCHUPS = JSON.parse(await readFile(resolve(here, '../src/game/matchups.data.json'), 'utf8'))
+// Single source of truth, shared with src/features/duel/matchups.ts.
+const MATCHUPS = JSON.parse(
+  await readFile(resolve(here, '../src/features/duel/matchups.data.json'), 'utf8'),
+)
 const SUGGESTED = JSON.parse(await readFile(SUGGESTED_OUT, 'utf8'))
 
 const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')

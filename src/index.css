@@ -1,6 +1,15 @@
+@import 'tailwindcss';
+@import './styles/keyframes.css';
+
+/* Light/dark: default palette is dark; the `light:` variant flips when an
+   ancestor carries `data-theme="light"` (set on <html> by the theme bootstrap). */
+@custom-variant light (&:where([data-theme='light'] *));
+
 /* Design tokens + base styles. Both palettes live here so the runtime
    light/dark toggle re-colors everything via CSS custom properties. The DARK
-   values equal the original hardcoded colors, so dark mode is unchanged. */
+   values equal the original hardcoded colors, so dark mode is unchanged. These
+   `:root` / `html[data-theme='light']` blocks are the token SOURCE OF TRUTH;
+   `@theme` below merely exposes them to Tailwind utilities. */
 :root {
   color-scheme: dark;
   --bg: #0c0d11;
@@ -70,101 +79,74 @@ html[data-theme='light'] {
   --gold: oklch(0.55 0.13 85);
 }
 
-* {
-  box-sizing: border-box;
+/* Expose the tokens above to Tailwind utilities (bg-*, text-*, border-*, …).
+   Values reference the runtime CSS vars so the light/dark toggle keeps working. */
+@theme {
+  --color-bg: var(--bg);
+  --color-bg-glow: var(--bg-glow);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
+  --color-muted-3: var(--muted-3);
+  --color-muted-4: var(--muted-4);
+  --color-muted-5: var(--muted-5);
+  --color-dim: var(--dim);
+  --color-chip-text: var(--chip-text);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-hover: var(--surface-hover);
+  --color-kbd-bg: var(--kbd-bg);
+  --color-tab-active: var(--tab-active);
+  --color-nav-bg: var(--nav-bg);
+  --color-border: var(--border);
+  --color-border-2: var(--border-2);
+  --color-border-3: var(--border-3);
+  --color-hairline: var(--hairline);
+
+  --color-slot-a: var(--slot-a);
+  --color-slot-a-bright: var(--slot-a-bright);
+  --color-slot-b: var(--slot-b);
+  --color-slot-b-bright: var(--slot-b-bright);
+  --color-ok: var(--ok);
+  --color-bad: var(--bad);
+  --color-gold: var(--gold);
+
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 }
 
-html,
-body,
-#root {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  transition:
-    background-color 0.3s ease,
-    color 0.3s ease;
-}
-
-button {
-  font-family: inherit;
-}
-
-button:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--slot-a);
-  outline-offset: 2px;
-}
-
-/* Custom-duel builder: two search cards + "or", side by side on desktop,
-   stacked once there isn't room so the cards never get crushed. */
-.duel-slots {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 18px;
-  align-items: stretch;
-}
-@media (max-width: 640px) {
-  .duel-slots {
-    grid-template-columns: 1fr;
+@layer base {
+  * {
+    box-sizing: border-box;
   }
-}
 
-@keyframes eq {
-  from {
-    transform: scaleY(0.14);
+  html,
+  body,
+  #root {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
   }
-  to {
-    transform: scaleY(1);
-  }
-}
 
-@keyframes floatIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
 
-@keyframes pulseRing {
-  0% {
-    transform: scale(1);
-    opacity: 0.5;
+  button {
+    font-family: inherit;
   }
-  100% {
-    transform: scale(1.6);
-    opacity: 0;
-  }
-}
 
-@keyframes popIn {
-  0% {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+  button:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--slot-a);
+    outline-offset: 2px;
   }
 }

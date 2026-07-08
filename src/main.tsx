@@ -2,8 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
-import { App } from './App'
-import { applyTheme, readTheme } from './game/theme-mode'
+import { App } from '@/app/App'
+import { applyTheme, readTheme } from '@/features/settings'
 
 // Apply the saved theme to <html> before rendering, so there is no flash of the
 // wrong palette on load.

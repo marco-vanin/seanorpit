@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { C, slotColor } from '../../theme'
+import { slotColor } from '@/utils/colors'
 
 /**
  * Dismissible "Comment jouer" sheet shared by the home screen and the playing
@@ -22,7 +22,7 @@ export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => vo
   const steps: { accent: string; text: string }[] = [
     { accent: slotColor('a'), text: 'Écoute l’extrait audio' },
     { accent: slotColor('b'), text: 'Devine lequel des deux artistes chante' },
-    { accent: C.gold, text: 'Enchaîne les bonnes réponses pour faire grimper ta série' },
+    { accent: 'var(--gold)', text: 'Enchaîne les bonnes réponses pour faire grimper ta série' },
   ]
 
   return (
@@ -30,145 +30,57 @@ export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => vo
       role="dialog"
       aria-modal="true"
       aria-label="Comment jouer"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        background: 'rgba(6, 7, 10, 0.72)',
-        padding: 'clamp(0px, 3vw, 24px)',
-        animation: 'floatIn .2s ease both',
-      }}
       onClick={onClose}
+      className="fixed inset-0 z-[100] flex animate-[floatIn_0.2s_ease_both] items-end justify-center bg-[rgba(6,7,10,0.72)] p-[clamp(0px,3vw,24px)]"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 460,
-          background: `linear-gradient(180deg, ${C.surface2} 0%, var(--surface-3) 100%)`,
-          border: `1px solid ${C.border}`,
-          borderRadius:
-            'clamp(16px, 5vw, 22px) clamp(16px, 5vw, 22px) clamp(0px, 3vw, 22px) clamp(0px, 3vw, 22px)',
-          padding: '26px 24px 30px',
-          animation: 'floatIn .28s ease both',
-        }}
+        className="w-full max-w-[460px] animate-[floatIn_0.28s_ease_both] rounded-t-[clamp(16px,5vw,22px)] rounded-b-[clamp(0px,3vw,22px)] border border-border bg-gradient-to-b from-surface-2 to-surface-3 px-6 pt-[26px] pb-[30px]"
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 22,
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontSize: 'clamp(22px, 6vw, 26px)',
-              fontWeight: 700,
-              letterSpacing: -0.5,
-            }}
-          >
+        <div className="mb-[22px] flex items-center justify-between">
+          <h2 className="m-0 text-[clamp(22px,6vw,26px)] font-bold tracking-[-0.5px]">
             Comment jouer
           </h2>
           <button
             onClick={onClose}
             aria-label="Fermer"
-            style={{
-              cursor: 'pointer',
-              flexShrink: 0,
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              border: `1px solid ${C.border}`,
-              background: C.surface,
-              color: C.text,
-              fontSize: 18,
-              lineHeight: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-[18px] leading-none text-text"
           >
             ✕
           </button>
         </div>
 
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 14 }}>
+        <ol className="m-0 grid list-none gap-[14px] p-0">
           {steps.map((step, i) => (
             <li
               key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                background: C.surface,
-                border: `1px solid ${C.border}`,
-                borderRadius: 14,
-                padding: '16px 18px',
-              }}
+              className="flex items-center gap-[14px] rounded-[14px] border border-border bg-surface px-[18px] py-4"
             >
               <span
                 aria-hidden
+                className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full font-mono text-[14px] font-semibold"
                 style={{
-                  flexShrink: 0,
-                  width: 30,
-                  height: 30,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: C.monoFont,
-                  fontWeight: 600,
-                  fontSize: 14,
                   color: step.accent,
-                  background: `color-mix(in oklab, ${step.accent} 16%, ${C.surface})`,
+                  background: `color-mix(in oklab, ${step.accent} 16%, var(--surface))`,
                   border: `1px solid ${step.accent}`,
                 }}
               >
                 {i + 1}
               </span>
-              <span style={{ fontSize: 'clamp(15px, 4vw, 16px)', lineHeight: 1.4 }}>
-                {step.text}
-              </span>
+              <span className="text-[clamp(15px,4vw,16px)] leading-[1.4]">{step.text}</span>
             </li>
           ))}
         </ol>
 
-        <div
-          style={{
-            fontFamily: C.monoFont,
-            fontSize: 11,
-            letterSpacing: 2,
-            textTransform: 'uppercase',
-            color: C.muted2,
-            margin: '24px 0 12px',
-          }}
-        >
+        <div className="mt-6 mb-3 font-mono text-[11px] tracking-[2px] text-muted-2 uppercase">
           Les modes
         </div>
-        <div style={{ display: 'grid', gap: 10, marginBottom: 22 }}>
+        <div className="mb-[22px] grid gap-2.5">
           <ModeRow icon="🎧" name="Classique" desc="10 titres · 30 s chacun" />
           <ModeRow icon="💀" name="Mort subite" desc="une erreur et c’est terminé" />
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 14,
-            marginBottom: 22,
-            fontFamily: C.monoFont,
-            fontSize: 11,
-            letterSpacing: 1,
-            color: C.muted2,
-            flexWrap: 'wrap',
-          }}
-        >
+        <div className="mb-[22px] flex flex-wrap items-center justify-center gap-[14px] font-mono text-[11px] tracking-[1px] text-muted-2">
           <span>Raccourcis :</span>
           <span>
             <Kbd>A</Kbd> / <Kbd>B</Kbd> choisir
@@ -180,18 +92,7 @@ export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
         <button
           onClick={onClose}
-          style={{
-            cursor: 'pointer',
-            width: '100%',
-            border: 'none',
-            background: C.text,
-            color: C.bg,
-            fontFamily: C.sansFont,
-            fontSize: 16,
-            fontWeight: 600,
-            padding: 14,
-            borderRadius: 12,
-          }}
+          className="w-full cursor-pointer rounded-[12px] border-none bg-text p-[14px] font-sans text-[16px] font-semibold text-bg"
         >
           C’est parti !
         </button>
@@ -202,23 +103,12 @@ export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
 function ModeRow({ icon, name, desc }: { icon: string; name: string; desc: string }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        background: C.surface,
-        border: `1px solid ${C.border}`,
-        borderRadius: 12,
-        padding: '12px 14px',
-      }}
-    >
-      <span aria-hidden style={{ fontSize: 20 }}>
+    <div className="flex items-center gap-3 rounded-[12px] border border-border bg-surface px-[14px] py-3">
+      <span aria-hidden className="text-[20px]">
         {icon}
       </span>
-      <div style={{ fontSize: 14 }}>
-        <span style={{ fontWeight: 600 }}>{name}</span>{' '}
-        <span style={{ color: C.muted2 }}>— {desc}</span>
+      <div className="text-[14px]">
+        <span className="font-semibold">{name}</span> <span className="text-muted-2">— {desc}</span>
       </div>
     </div>
   )
@@ -226,17 +116,7 @@ function ModeRow({ icon, name, desc }: { icon: string; name: string; desc: strin
 
 function Kbd({ children }: { children: string }) {
   return (
-    <kbd
-      style={{
-        background: 'var(--kbd-bg)',
-        border: `1px solid ${C.border2}`,
-        borderRadius: 5,
-        padding: '2px 7px',
-        color: C.muted,
-        fontFamily: C.monoFont,
-        fontSize: 11,
-      }}
-    >
+    <kbd className="rounded-[5px] border border-border-2 bg-kbd-bg px-[7px] py-0.5 font-mono text-[11px] text-muted">
       {children}
     </kbd>
   )
