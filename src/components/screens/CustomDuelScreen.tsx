@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { Button } from '../ui/Button'
 import { Artwork } from '../ui/Artwork'
 import { C, slotColor } from '../../theme'
@@ -7,6 +14,10 @@ import type { Matchup, Side } from '../../game/matchups'
 import type { Mode } from '../../game/modes'
 import { ModeCards } from './ModeCards'
 import { MatchupHeader } from './ModeSelectScreen'
+import suggestedData from '../../game/suggested.json'
+
+/** Curated suggestion pool (real iTunes ids) for quick-pick chips + random duel. */
+const SUGGESTED = suggestedData as ArtistHit[]
 
 type Phase =
   | { kind: 'idle' }
@@ -14,15 +25,17 @@ type Phase =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; matchup: Matchup }
 
+type Status = 'idle' | 'typing' | 'searching' | 'results' | 'no-results'
+
 /**
- * Custom-duel builder at `/duel/custom`. A vertical **versus builder**: slot A
- * (green) on top, a central "or", slot B (orange) below. Each empty slot is a
- * tappable "+ Choisir un artiste" that opens an inline debounced search with an
- * artwork dropdown; picking fills the slot with the artist's artwork + name and
- * a ✕ to redo. "Préparer le duel" (enabled once both slots are filled) fetches +
- * filters both catalogs and — on ≥ 8 clean tracks per side — reveals the mode
- * cards. All states are French. The built matchup is session-only; the parent
- * starts + navigates on mode pick.
+ * Custom-duel builder at `/duel/custom` — "Compose ton duel". A wide (760px)
+ * two-column versus layout: artist A (green) left, an "or" badge center, artist
+ * B (orange) right. Each column, inline: a filled chip (artwork + name + ✕), an
+ * open search (input + debounced results), or a closed state (a "+ Choisir un
+ * artiste" button + quick-pick chips). "🎲 Duel au hasard" fills both from the
+ * suggestion pool. "Préparer le duel" (both filled) fetches + filters both
+ * catalogs and — on ≥ 8 clean tracks per side — reveals the mode cards. All
+ * French; the built matchup is session-only.
  */
 export function CustomDuelScreen({
   onPlay,
@@ -35,7 +48,84 @@ export function CustomDuelScreen({
   const [b, setB] = useState<ArtistHit | undefined>()
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
 
+  // Only one slot searches at a time. Shared query/results with a last-query-wins
+  // token so a slow earlier request can never overwrite a newer one.
+  const [openSlot, setOpenSlot] = useState<Side | null>(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<ArtistHit[]>([])
+  const [status, setStatus] = useState<Status>('idle')
+  const reqId = useRef(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (openSlot) inputRef.current?.focus()
+  }, [openSlot])
+
+  useEffect(() => {
+    if (!openSlot) return
+    const q = query.trim()
+    if (q.length < 2) {
+      reqId.current++ // invalidate any in-flight request
+      setResults([])
+      setStatus(q.length === 0 ? 'idle' : 'typing')
+      return
+    }
+    const id = ++reqId.current
+    setStatus('searching')
+    const timer = window.setTimeout(() => {
+      searchArtists(q)
+        .then((hits) => {
+          if (id !== reqId.current) return // stale — a newer query superseded us
+          setResults(hits)
+          setStatus(hits.length ? 'results' : 'no-results')
+        })
+        .catch(() => {
+          if (id !== reqId.current) return
+          setResults([])
+          setStatus('no-results')
+        })
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [query, openSlot])
+
+  const other = (side: Side) => (side === 'a' ? b : a)
+  const setSide = (side: Side, hit?: ArtistHit) => (side === 'a' ? setA(hit) : setB(hit))
+  const clearError = () => setPhase((p) => (p.kind === 'error' ? { kind: 'idle' } : p))
+
+  const openFor = (side: Side) => {
+    reqId.current++
+    setResults([])
+    setStatus('idle')
+    setQuery('')
+    setOpenSlot(side)
+    clearError()
+  }
+  const closeSlot = () => {
+    reqId.current++
+    setResults([])
+    setStatus('idle')
+    setQuery('')
+    setOpenSlot(null)
+  }
+  const pick = (side: Side, hit: ArtistHit) => {
+    setSide(side, hit)
+    closeSlot()
+    clearError()
+  }
+  const clear = (side: Side) => setSide(side, undefined)
+
+  const randomDuel = () => {
+    const pool = [...SUGGESTED]
+    const ra = pool.splice(Math.floor(Math.random() * pool.length), 1)[0]
+    const rb = pool[Math.floor(Math.random() * pool.length)]
+    setA(ra)
+    setB(rb)
+    closeSlot()
+    clearError()
+  }
+
   const canSubmit = !!a && !!b && phase.kind !== 'loading'
+  const bothReady = !!a && !!b
 
   const handleSubmit = async () => {
     if (!a || !b || phase.kind === 'loading') return
@@ -53,45 +143,9 @@ export function CustomDuelScreen({
 
   return (
     <div style={{ textAlign: 'center', animation: 'floatIn .45s ease both' }}>
-      <button
-        onClick={onBack}
-        aria-label="Retour à l'accueil"
-        style={{
-          cursor: 'pointer',
-          background: 'transparent',
-          border: 'none',
-          color: C.muted2,
-          fontFamily: C.monoFont,
-          fontSize: 13,
-          letterSpacing: 1,
-          marginBottom: 20,
-        }}
-      >
+      <button onClick={onBack} aria-label="Retour à l'accueil" style={backStyle}>
         ← Accueil
       </button>
-
-      <h1
-        style={{
-          fontSize: 'clamp(30px, 9vw, 46px)',
-          fontWeight: 700,
-          lineHeight: 1.05,
-          letterSpacing: -1.5,
-          margin: '0 0 12px',
-        }}
-      >
-        Créer un duel
-      </h1>
-      <p
-        style={{
-          maxWidth: 420,
-          margin: '0 auto 30px',
-          color: C.muted,
-          fontSize: 'clamp(14px, 4vw, 16px)',
-          lineHeight: 1.5,
-        }}
-      >
-        Choisis deux artistes. On récupère leurs extraits et on prépare le blindtest.
-      </p>
 
       {ready ? (
         <div style={{ animation: 'floatIn .35s ease both' }}>
@@ -114,68 +168,151 @@ export function CustomDuelScreen({
           <ModeCards matchup={ready} onSelect={(mode) => onPlay(ready, mode)} />
           <button
             onClick={() => setPhase({ kind: 'idle' })}
-            style={{
-              cursor: 'pointer',
-              background: 'transparent',
-              border: 'none',
-              color: C.muted3,
-              fontFamily: C.monoFont,
-              fontSize: 13,
-              marginTop: 24,
-            }}
+            style={{ ...backStyle, marginTop: 24, marginBottom: 0 }}
           >
             ← Changer d'artistes
           </button>
         </div>
       ) : (
-        <div style={{ maxWidth: 440, margin: '0 auto', textAlign: 'left' }}>
-          <Slot
-            side="a"
-            selected={a}
-            onSelect={setA}
-            onClear={() => setA(undefined)}
-            placeholder="ex. Drake"
-          />
-          <OrDivider />
-          <Slot
-            side="b"
-            selected={b}
-            onSelect={setB}
-            onClear={() => setB(undefined)}
-            placeholder="ex. The Weeknd"
-          />
+        <div style={{ maxWidth: 760, margin: '0 auto' }}>
+          <div style={{ marginBottom: 28 }}>
+            <h1
+              style={{
+                fontSize: 'clamp(32px, 9vw, 48px)',
+                fontWeight: 700,
+                letterSpacing: -1.5,
+                margin: '0 0 10px',
+              }}
+            >
+              Compose ton duel
+            </h1>
+            <p
+              style={{
+                maxWidth: 380,
+                margin: '0 auto',
+                color: C.muted2,
+                fontSize: 'clamp(14px, 4vw, 16px)',
+                lineHeight: 1.5,
+              }}
+            >
+              Choisis deux artistes. On récupère leurs extraits et on lance le blindtest.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto 1fr',
+              gap: 16,
+              alignItems: 'start',
+              textAlign: 'left',
+            }}
+          >
+            <ArtistSlot
+              side="a"
+              selected={a}
+              open={openSlot === 'a'}
+              placeholder="ex. Drake, Rihanna…"
+              query={query}
+              status={status}
+              results={results.filter((r) => r.artistId !== other('a')?.artistId)}
+              quick={SUGGESTED.filter((s) => s.artistId !== other('a')?.artistId).slice(0, 5)}
+              inputRef={openSlot === 'a' ? inputRef : undefined}
+              onOpen={() => openFor('a')}
+              onQuery={setQuery}
+              onCancel={closeSlot}
+              onPick={(hit) => pick('a', hit)}
+              onClear={() => clear('a')}
+            />
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span
+                style={{
+                  fontFamily: C.monoFont,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: bothReady ? C.gold : C.muted5,
+                  border: `1.5px solid ${bothReady ? C.gold : C.border2}`,
+                  borderRadius: 999,
+                  width: 48,
+                  height: 48,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  transition: 'color .2s, border-color .2s',
+                  marginTop: 28,
+                }}
+              >
+                or
+              </span>
+            </div>
+
+            <ArtistSlot
+              side="b"
+              selected={b}
+              open={openSlot === 'b'}
+              placeholder="ex. The Weeknd, Beyoncé…"
+              query={query}
+              status={status}
+              results={results.filter((r) => r.artistId !== other('b')?.artistId)}
+              quick={SUGGESTED.filter((s) => s.artistId !== other('b')?.artistId).slice(0, 5)}
+              inputRef={openSlot === 'b' ? inputRef : undefined}
+              onOpen={() => openFor('b')}
+              onQuery={setQuery}
+              onCancel={closeSlot}
+              onPick={(hit) => pick('b', hit)}
+              onClear={() => clear('b')}
+            />
+          </div>
 
           {phase.kind === 'error' && (
             <div
               role="alert"
               style={{
-                background: 'oklch(0.78 0.15 55 / 0.12)',
+                background: 'color-mix(in oklab, var(--pit) 12%, transparent)',
                 border: `1px solid ${C.pit}`,
                 borderRadius: 14,
                 padding: '14px 16px',
                 color: C.text,
                 fontSize: 14,
                 lineHeight: 1.45,
-                margin: '18px 0 20px',
+                margin: '20px 0 0',
               }}
             >
               {phase.message}
             </div>
           )}
 
-          <div style={{ textAlign: 'center', marginTop: 22 }}>
-            <Button
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              style={{
-                width: '100%',
-                opacity: canSubmit ? 1 : 0.5,
-                cursor: canSubmit ? 'pointer' : 'default',
-              }}
-            >
-              {phase.kind === 'loading' ? 'Préparation du duel…' : 'Préparer le duel'}
-            </Button>
-          </div>
+          <Button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            style={{
+              width: '100%',
+              marginTop: 24,
+              opacity: canSubmit ? 1 : 0.5,
+              cursor: canSubmit ? 'pointer' : 'default',
+            }}
+          >
+            {phase.kind === 'loading' ? 'Préparation du duel…' : 'Préparer le duel'}
+          </Button>
+          <button
+            onClick={randomDuel}
+            disabled={phase.kind === 'loading'}
+            style={{
+              cursor: phase.kind === 'loading' ? 'default' : 'pointer',
+              width: '100%',
+              marginTop: 10,
+              background: 'transparent',
+              border: 'none',
+              color: C.muted2,
+              fontFamily: C.monoFont,
+              fontSize: 13,
+              letterSpacing: 1,
+            }}
+          >
+            🎲 Duel au hasard
+          </button>
 
           {phase.kind === 'loading' && (
             <div
@@ -184,7 +321,6 @@ export function CustomDuelScreen({
                 fontSize: 12,
                 letterSpacing: 1,
                 color: C.muted3,
-                textAlign: 'center',
                 marginTop: 16,
               }}
             >
@@ -197,130 +333,52 @@ export function CustomDuelScreen({
   )
 }
 
-/** The central "or" pill between the two slots. */
-function OrDivider() {
-  return (
-    <div aria-hidden style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
-      <span
-        style={{
-          fontFamily: C.monoFont,
-          fontSize: 13,
-          fontWeight: 600,
-          color: C.muted5,
-          border: `1.5px solid ${C.border2}`,
-          borderRadius: 999,
-          width: 40,
-          height: 40,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        or
-      </span>
-    </div>
-  )
-}
-
-type FieldStatus = 'idle' | 'typing' | 'searching' | 'results' | 'no-results'
-
 /**
- * One versus slot. Three states, tinted by its slot color:
- *   • empty  → "+ Choisir un artiste" (tap opens search)
- *   • search → autofocus input + dropdown (Artwork + name + genre)
- *   • filled → Artwork + name + ✕ to clear
- *
- * The search reuses the app's debounced (300ms, ≥ 2 chars) last-query-wins
- * guard verbatim: a per-slot request token (ref) is bumped on every keystroke,
- * captured for that search, and results are applied only while the captured
- * token is still the latest — so a slow earlier query can never overwrite a
- * newer one, even though JSONP callbacks can't be aborted.
+ * One artist column. Three inline states, tinted by its slot color:
+ *   • filled → artwork + name + ✕
+ *   • open   → autofocus input + debounced results (artwork + name + genre) + Annuler
+ *   • closed → "+ Choisir un artiste" + quick-pick chips
+ * Search state (query/results/status/last-query-wins) is owned by the parent and
+ * passed in; this component is presentational.
  */
-function Slot({
+function ArtistSlot({
   side,
   selected,
-  onSelect,
-  onClear,
+  open,
   placeholder,
+  query,
+  status,
+  results,
+  quick,
+  inputRef,
+  onOpen,
+  onQuery,
+  onCancel,
+  onPick,
+  onClear,
 }: {
   side: Side
   selected?: ArtistHit
-  onSelect: (hit: ArtistHit) => void
-  onClear: () => void
+  open: boolean
   placeholder: string
+  query: string
+  status: Status
+  results: ArtistHit[]
+  quick: ArtistHit[]
+  inputRef?: RefObject<HTMLInputElement>
+  onOpen: () => void
+  onQuery: (q: string) => void
+  onCancel: () => void
+  onPick: (hit: ArtistHit) => void
+  onClear: () => void
 }) {
   const accent = slotColor(side)
   const label = side === 'a' ? 'Artiste A' : 'Artiste B'
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<ArtistHit[]>([])
-  const [status, setStatus] = useState<FieldStatus>('idle')
-  // Monotonic per-slot token: latest keystroke wins.
-  const reqId = useRef(0)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
-
-  useEffect(() => {
-    // No searching unless the slot is actively in its inline-search state.
-    if (selected || !open) return
-    const q = query.trim()
-    if (q.length < 2) {
-      // Bump the token to invalidate any in-flight request, clear the dropdown,
-      // and cancel the pending debounce (via the cleanup below).
-      reqId.current++
-      setResults([])
-      setStatus(q.length === 0 ? 'idle' : 'typing')
-      return
-    }
-    // This keystroke's token — assigning it now invalidates older in-flight
-    // requests the moment the user types again.
-    const id = ++reqId.current
-    setStatus('searching')
-    const timer = window.setTimeout(() => {
-      searchArtists(q)
-        .then((hits) => {
-          if (id !== reqId.current) return // stale — a newer query superseded us
-          setResults(hits)
-          setStatus(hits.length ? 'results' : 'no-results')
-        })
-        .catch(() => {
-          if (id !== reqId.current) return
-          setResults([])
-          setStatus('no-results')
-        })
-    }, 300)
-    return () => window.clearTimeout(timer)
-  }, [query, selected, open])
-
-  const closeSearch = () => {
-    reqId.current++ // discard any in-flight
-    setResults([])
-    setStatus('idle')
-    setQuery('')
-    setOpen(false)
-  }
-
-  const handleSelect = (hit: ArtistHit) => {
-    reqId.current++ // discard any in-flight
-    setResults([])
-    setStatus('idle')
-    setQuery('')
-    setOpen(false)
-    onSelect(hit)
-  }
-
-  const handleClear = () => {
-    onClear()
-    closeSearch()
-  }
-
-  // ── filled ────────────────────────────────────────────────────────────────
+  // ── filled ──────────────────────────────────────────────────────────────────
   if (selected) {
     return (
-      <div style={{ marginBottom: 0 }}>
+      <div>
         <SlotLabel accent={accent}>{label}</SlotLabel>
         <div
           style={{
@@ -332,10 +390,10 @@ function Slot({
             background: `color-mix(in oklab, ${accent} 8%, ${C.surface})`,
             border: `1.5px solid ${accent}`,
             borderRadius: 16,
-            padding: '14px 16px',
+            padding: '12px 14px',
           }}
         >
-          <Artwork src={selected.artworkUrl} name={selected.artistName} color={accent} size={56} />
+          <Artwork src={selected.artworkUrl} name={selected.artistName} color={accent} size={52} />
           <span
             style={{
               flex: 1,
@@ -352,20 +410,9 @@ function Slot({
           </span>
           <button
             type="button"
-            onClick={handleClear}
+            onClick={onClear}
             aria-label={`Retirer ${selected.artistName}`}
-            style={{
-              cursor: 'pointer',
-              flexShrink: 0,
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              border: `1px solid ${C.border}`,
-              background: 'transparent',
-              color: C.muted2,
-              fontSize: 15,
-              lineHeight: 1,
-            }}
+            style={clearBtnStyle}
           >
             ✕
           </button>
@@ -374,51 +421,11 @@ function Slot({
     )
   }
 
-  // ── empty ─────────────────────────────────────────────────────────────────
-  if (!open) {
+  // ── open (search) ────────────────────────────────────────────────────────────
+  if (open) {
     return (
-      <div style={{ marginBottom: 0 }}>
+      <div>
         <SlotLabel accent={accent}>{label}</SlotLabel>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label={`Choisir ${label}`}
-          style={{
-            cursor: 'pointer',
-            width: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            fontFamily: C.sansFont,
-            fontSize: 17,
-            fontWeight: 500,
-            color: C.muted,
-            background: `color-mix(in oklab, ${accent} 5%, ${C.surface})`,
-            border: `1.5px dashed color-mix(in oklab, ${accent} 55%, ${C.border})`,
-            borderRadius: 16,
-            padding: '18px 18px',
-            transition: 'border-color .15s, background .15s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = accent
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = `color-mix(in oklab, ${accent} 55%, ${C.border})`
-          }}
-        >
-          <span style={{ color: accent, fontSize: 22, fontWeight: 600, lineHeight: 1 }}>+</span>
-          Choisir un artiste
-        </button>
-      </div>
-    )
-  }
-
-  // ── search ────────────────────────────────────────────────────────────────
-  return (
-    <div style={{ marginBottom: 0 }}>
-      <SlotLabel accent={accent}>{label}</SlotLabel>
-      <div style={{ position: 'relative' }}>
         <input
           ref={inputRef}
           type="text"
@@ -426,11 +433,10 @@ function Slot({
           placeholder={placeholder}
           autoComplete="off"
           aria-label={`Rechercher ${label}`}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => onQuery(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') closeSearch()
+            if (e.key === 'Escape') onCancel()
           }}
-          onBlur={closeSearch}
           style={{
             width: '100%',
             boxSizing: 'border-box',
@@ -440,108 +446,110 @@ function Slot({
             background: C.surface,
             border: `1.5px solid ${accent}`,
             borderRadius: 16,
-            padding: '16px 46px 16px 16px',
+            padding: '15px 16px',
             outline: 'none',
           }}
         />
-        <button
-          type="button"
-          aria-label="Annuler la recherche"
-          // Prevent the input's blur from firing before the click resolves.
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={closeSearch}
-          style={{
-            position: 'absolute',
-            top: '50%',
-            right: 10,
-            transform: 'translateY(-50%)',
-            cursor: 'pointer',
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            border: 'none',
-            background: 'transparent',
-            color: C.muted2,
-            fontSize: 14,
-            lineHeight: 1,
-          }}
-        >
-          ✕
-        </button>
 
         {status === 'searching' && <Hint>Recherche…</Hint>}
         {status === 'no-results' && <Hint>Aucun artiste trouvé</Hint>}
 
-        {status === 'results' && results.length > 0 && (
-          <ul
-            role="listbox"
-            style={{
-              listStyle: 'none',
-              margin: '8px 0 0',
-              padding: 4,
-              background: C.surface2,
-              border: `1px solid ${C.border}`,
-              borderRadius: 16,
-              maxHeight: 320,
-              overflowY: 'auto',
+        {status === 'results' &&
+          results.map((hit) => (
+            <button
+              key={hit.artistId}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onPick(hit)}
+              style={resultRowStyle}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = C.surface2
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent'
+              }}
+            >
+              <Artwork src={hit.artworkUrl} name={hit.artistName} color={accent} size={40} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={rowNameStyle}>{hit.artistName}</span>
+                {hit.genre && <span style={rowGenreStyle}>{hit.genre}</span>}
+              </span>
+            </button>
+          ))}
+
+        <button type="button" onClick={onCancel} style={cancelStyle}>
+          Annuler
+        </button>
+      </div>
+    )
+  }
+
+  // ── closed (choose + quick picks) ─────────────────────────────────────────────
+  return (
+    <div>
+      <SlotLabel accent={accent}>{label}</SlotLabel>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Choisir ${label}`}
+        style={{
+          cursor: 'pointer',
+          width: '100%',
+          boxSizing: 'border-box',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          fontFamily: C.sansFont,
+          fontSize: 17,
+          fontWeight: 500,
+          color: C.muted,
+          background: `color-mix(in oklab, ${accent} 5%, ${C.surface})`,
+          border: `1.5px dashed color-mix(in oklab, ${accent} 55%, ${C.border})`,
+          borderRadius: 16,
+          padding: '17px 18px',
+          transition: 'border-color .15s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = accent
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = `color-mix(in oklab, ${accent} 55%, ${C.border})`
+        }}
+      >
+        <span style={{ color: accent, fontSize: 22, fontWeight: 600, lineHeight: 1 }}>+</span>
+        Choisir un artiste
+      </button>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 10 }}>
+        {quick.map((hit) => (
+          <button
+            key={hit.artistId}
+            type="button"
+            onClick={() => onPick(hit)}
+            aria-label={`Choisir ${hit.artistName}`}
+            style={chipStyle}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = accent
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = C.border
             }}
           >
-            {results.map((hit) => (
-              <li key={hit.artistId}>
-                <button
-                  type="button"
-                  // Keep the input focused until the pick resolves.
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelect(hit)}
-                  style={resultRowStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = C.surface
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent'
-                  }}
-                >
-                  <Artwork src={hit.artworkUrl} name={hit.artistName} color={accent} size={44} />
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span
-                      style={{
-                        display: 'block',
-                        fontSize: 16,
-                        fontWeight: 600,
-                        color: C.text,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {hit.artistName}
-                    </span>
-                    {hit.genre && (
-                      <span
-                        style={{
-                          display: 'block',
-                          fontSize: 12,
-                          color: C.muted2,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {hit.genre}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+            <Artwork
+              src={hit.artworkUrl}
+              name={hit.artistName}
+              color={accent}
+              size={20}
+              radius={999}
+            />
+            {hit.artistName}
+          </button>
+        ))}
       </div>
     </div>
   )
 }
 
-/** Uppercase mono slot label in the slot's accent color. */
 function SlotLabel({ accent, children }: { accent: string; children: ReactNode }) {
   return (
     <span
@@ -560,7 +568,6 @@ function SlotLabel({ accent, children }: { accent: string; children: ReactNode }
   )
 }
 
-/** Small mono hint shown under a field (searching / no-results). */
 function Hint({ children }: { children: ReactNode }) {
   return (
     <div
@@ -578,6 +585,30 @@ function Hint({ children }: { children: ReactNode }) {
   )
 }
 
+const backStyle: CSSProperties = {
+  cursor: 'pointer',
+  background: 'transparent',
+  border: 'none',
+  color: C.muted2,
+  fontFamily: C.monoFont,
+  fontSize: 13,
+  letterSpacing: 1,
+  marginBottom: 24,
+}
+
+const clearBtnStyle: CSSProperties = {
+  cursor: 'pointer',
+  flexShrink: 0,
+  width: 32,
+  height: 32,
+  borderRadius: '50%',
+  border: `1px solid ${C.border2}`,
+  background: 'transparent',
+  color: C.muted2,
+  fontSize: 14,
+  lineHeight: 1,
+}
+
 const resultRowStyle: CSSProperties = {
   cursor: 'pointer',
   display: 'flex',
@@ -588,7 +619,52 @@ const resultRowStyle: CSSProperties = {
   background: 'transparent',
   border: 'none',
   borderRadius: 12,
-  padding: '8px 10px',
+  padding: '9px 10px',
+  marginTop: 4,
   fontFamily: C.sansFont,
   transition: 'background .12s',
+}
+
+const rowNameStyle: CSSProperties = {
+  display: 'block',
+  fontSize: 16,
+  fontWeight: 600,
+  color: C.text,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+}
+
+const rowGenreStyle: CSSProperties = {
+  display: 'block',
+  fontSize: 12,
+  color: C.muted2,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+}
+
+const cancelStyle: CSSProperties = {
+  cursor: 'pointer',
+  background: 'transparent',
+  border: 'none',
+  color: C.muted2,
+  fontFamily: C.monoFont,
+  fontSize: 12,
+  marginTop: 8,
+}
+
+const chipStyle: CSSProperties = {
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 7,
+  background: C.surface,
+  border: `1px solid ${C.border}`,
+  borderRadius: 999,
+  padding: '5px 12px 5px 6px',
+  fontFamily: C.sansFont,
+  fontSize: 13,
+  color: C.muted,
+  transition: 'border-color .15s',
 }

@@ -9,6 +9,10 @@ export interface AudioStatus {
   error: boolean
   /** Autoplay was blocked by the browser — a tap is needed to start. */
   blocked: boolean
+  /** Current playback position in seconds (loops back to 0 with the clip). */
+  elapsed: number
+  /** Clip length in seconds once known, else 0. */
+  duration: number
 }
 
 /**
@@ -27,6 +31,8 @@ export function useAudioPlayer(
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(false)
   const [blocked, setBlocked] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
+  const [duration, setDuration] = useState(0)
 
   // Create the element once.
   useEffect(() => {
@@ -48,6 +54,8 @@ export function useAudioPlayer(
     setReady(false)
     setError(false)
     setBlocked(false)
+    setElapsed(0)
+    setDuration(0)
     // The clip always loops for the full question.
     el.loop = true
     if (!src) {
@@ -60,12 +68,20 @@ export function useAudioPlayer(
     el.load()
     const onReady = () => setReady(true)
     const onError = () => setError(true)
+    const onTime = () => setElapsed(el.currentTime)
+    const onMeta = () => setDuration(Number.isFinite(el.duration) ? el.duration : 0)
     el.addEventListener('canplay', onReady)
     el.addEventListener('error', onError)
+    el.addEventListener('timeupdate', onTime)
+    el.addEventListener('loadedmetadata', onMeta)
+    el.addEventListener('durationchange', onMeta)
 
     return () => {
       el.removeEventListener('canplay', onReady)
       el.removeEventListener('error', onError)
+      el.removeEventListener('timeupdate', onTime)
+      el.removeEventListener('loadedmetadata', onMeta)
+      el.removeEventListener('durationchange', onMeta)
     }
   }, [src])
 
@@ -89,5 +105,5 @@ export function useAudioPlayer(
     }
   }, [playing, src])
 
-  return { hasAudio: !!src, ready, error, blocked }
+  return { hasAudio: !!src, ready, error, blocked, elapsed, duration }
 }

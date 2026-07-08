@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Waveform } from '../Waveform'
+import { Artwork } from '../ui/Artwork'
 import { C } from '../../theme'
 import type { Selection } from '../../game/useGame'
 
@@ -14,11 +15,17 @@ interface PlayingScreenProps {
   timerEnabled: boolean
   timeLeft: number
   seconds: number
+  /** Elapsed / total clip seconds for the readout (duration 0 when unknown). */
+  elapsed: number
+  duration: number
   /** Slot A / B artist names + accent colors from the active matchup. */
   nameA: string
   nameB: string
   accentA: string
   accentB: string
+  /** Slot A / B artwork (the two candidates — NEVER the current track's art). */
+  imageA?: string
+  imageB?: string
   onToggle: () => void
   onGuessA: () => void
   onGuessB: () => void
@@ -27,8 +34,12 @@ interface PlayingScreenProps {
   blocked: boolean
   selected: Selection
   answerCorrect: boolean
+  /** First-play one-time hint near the choices; hidden after the first guess. */
+  showHint: boolean
   muted: boolean
   onToggleMute: () => void
+  /** Abandon the run — opens the confirm dialog owned by the route. */
+  onQuit: () => void
 }
 
 export function PlayingScreen({
@@ -41,10 +52,14 @@ export function PlayingScreen({
   timerEnabled,
   timeLeft,
   seconds,
+  elapsed,
+  duration,
   nameA,
   nameB,
   accentA,
   accentB,
+  imageA,
+  imageB,
   onToggle,
   onGuessA,
   onGuessB,
@@ -53,14 +68,21 @@ export function PlayingScreen({
   blocked,
   selected,
   answerCorrect,
+  showHint,
   muted,
   onToggleMute,
+  onQuit,
 }: PlayingScreenProps) {
   // Result color of the picked button during the suspense beat, mirroring the
   // reveal: green when correct, red-orange when wrong. Timeout → no flash.
   const flashColor = answerCorrect ? C.sean : C.pit
   const timePct = seconds ? Math.max(0, (timeLeft / seconds) * 100) : 100
   const timerColor = timeLeft <= Math.max(3, seconds * 0.25) ? C.pit : C.text
+
+  // The clip is live and playing normally — show the elapsed timecode; otherwise
+  // fall back to a descriptive state (unavailable / loading / blocked).
+  const clipLive = hasAudio && !loading && !blocked
+  const clipTotal = duration > 0 ? duration : seconds || 30
 
   let playHint: string
   if (!hasAudio) playHint = 'Extrait indisponible — fie-toi à ton instinct'
@@ -81,11 +103,36 @@ export function PlayingScreen({
           fontFamily: C.monoFont,
         }}
       >
-        <div
-          style={{ fontSize: 13, letterSpacing: 2, color: C.muted2, textTransform: 'uppercase' }}
-        >
-          Titre <span style={{ color: C.text }}>{qNumber}</span>
-          {endless ? '' : ` / ${total}`}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <button
+            onClick={onQuit}
+            aria-label="Quitter la partie"
+            style={{
+              cursor: 'pointer',
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              fontFamily: C.monoFont,
+              fontSize: 12,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              color: C.muted2,
+              background: 'transparent',
+              border: `1px solid ${C.border2}`,
+              borderRadius: 999,
+              padding: '5px 12px',
+              lineHeight: 1,
+            }}
+          >
+            <span aria-hidden>✕</span> Quitter
+          </button>
+          <div
+            style={{ fontSize: 13, letterSpacing: 2, color: C.muted2, textTransform: 'uppercase' }}
+          >
+            Titre <span style={{ color: C.text }}>{qNumber}</span>
+            {endless ? '' : ` / ${total}`}
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13 }}>
           <div style={{ color: C.muted2 }}>
@@ -118,7 +165,7 @@ export function PlayingScreen({
       {/* Player card */}
       <div
         style={{
-          background: `linear-gradient(180deg, ${C.surface2} 0%, #101219 100%)`,
+          background: `linear-gradient(180deg, ${C.surface2} 0%, var(--surface-3) 100%)`,
           border: `1px solid ${C.border}`,
           borderRadius: 22,
           padding: '44px 40px 40px',
@@ -162,18 +209,49 @@ export function PlayingScreen({
 
         <Waveform playing={playing} />
 
-        <div
-          style={{
-            fontFamily: C.monoFont,
-            fontSize: 12,
-            letterSpacing: 2,
-            color: C.muted4,
-            textTransform: 'uppercase',
-            marginTop: 8,
-          }}
-        >
-          {playHint}
-        </div>
+        {clipLive ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              marginTop: 14,
+              fontFamily: C.monoFont,
+              fontSize: 12,
+              letterSpacing: 1,
+              color: C.muted2,
+            }}
+          >
+            <span style={{ color: C.text }}>{fmtClip(elapsed)}</span>
+            <span>/ {fmtClip(clipTotal)}</span>
+            <span
+              aria-hidden
+              style={{
+                width: 4,
+                height: 4,
+                borderRadius: '50%',
+                background: playing ? C.sean : C.muted2,
+              }}
+            />
+            <span style={{ textTransform: 'uppercase', letterSpacing: 2 }}>
+              {playing ? 'lecture' : 'en pause'}
+            </span>
+          </div>
+        ) : (
+          <div
+            style={{
+              fontFamily: C.monoFont,
+              fontSize: 12,
+              letterSpacing: 2,
+              color: C.muted4,
+              textTransform: 'uppercase',
+              marginTop: 14,
+            }}
+          >
+            {playHint}
+          </div>
+        )}
 
         {timerEnabled && (
           <div
@@ -198,98 +276,235 @@ export function PlayingScreen({
         )}
       </div>
 
-      {/* Choices */}
+      {/* First-play hint — shown once, until the first explicit guess. */}
+      {showHint && (
+        <div
+          style={{
+            fontFamily: C.monoFont,
+            fontSize: 12,
+            letterSpacing: 1,
+            color: C.muted,
+            textAlign: 'center',
+            marginTop: 22,
+          }}
+        >
+          👆 Touche l’artiste que tu penses entendre
+        </div>
+      )}
+
+      {/* Choices — the two candidate artists (never the current track's art). */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: 16,
-          marginTop: 22,
+          marginTop: showHint ? 12 : 22,
         }}
       >
-        <ChoiceButton
-          label={nameA}
-          option="Option A"
+        <ArtistCard
+          name={nameA}
+          badge="A"
+          image={imageA}
           accent={accentA}
-          hoverBg="#14181a"
           onClick={onGuessA}
           locked={selected !== null}
           flashColor={selected === 'a' ? flashColor : null}
         />
-        <ChoiceButton
-          label={nameB}
-          option="Option B"
+        <ArtistCard
+          name={nameB}
+          badge="B"
+          image={imageB}
           accent={accentB}
-          hoverBg="#191614"
           onClick={onGuessB}
           locked={selected !== null}
           flashColor={selected === 'b' ? flashColor : null}
         />
       </div>
+
+      {/* Keyboard hint (desktop; harmless on touch). */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 14,
+          marginTop: 18,
+          fontFamily: C.monoFont,
+          fontSize: 11,
+          letterSpacing: 1,
+          color: C.muted2,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span>
+          <Kbd>A</Kbd> / <Kbd>B</Kbd> choisir
+        </span>
+        <span>
+          <Kbd>espace</Kbd> lecture
+        </span>
+      </div>
     </div>
   )
 }
 
-function ChoiceButton({
-  label,
-  option,
+/** Two-digit m:ss for the clip timecode. */
+function fmtClip(s: number): string {
+  const total = Math.max(0, Math.floor(s))
+  const m = Math.floor(total / 60)
+  const ss = total % 60
+  return `${m}:${ss < 10 ? '0' : ''}${ss}`
+}
+
+function Kbd({ children }: { children: string }) {
+  return (
+    <kbd
+      style={{
+        background: 'var(--kbd-bg)',
+        border: `1px solid ${C.border2}`,
+        borderRadius: 5,
+        padding: '2px 7px',
+        color: C.muted,
+        fontFamily: C.monoFont,
+        fontSize: 11,
+      }}
+    >
+      {children}
+    </kbd>
+  )
+}
+
+function ArtistCard({
+  name,
+  badge,
+  image,
   accent,
-  hoverBg,
   onClick,
   locked,
   flashColor,
 }: {
-  label: string
-  option: string
+  name: string
+  /** Corner label ("A" / "B") echoing the keyboard shortcut. */
+  badge: string
+  image?: string
   accent: string
-  hoverBg: string
   onClick: () => void
   locked: boolean
-  /** When set, this button is the picked choice and flashes its result color. */
+  /** When set, this card is the picked choice and flashes its result color. */
   flashColor: string | null
 }) {
-  // During the suspense beat the picked button shows its result color; every
-  // button is inert (no hover swap, no pointer) once a choice is locked in.
-  const flashBg = (color: string) => `color-mix(in oklab, ${color} 16%, ${C.surface})`
-  const base: CSSProperties = {
+  // During the suspense beat the picked card shows its result color; every card
+  // is inert (no hover swap, no pointer) once a choice is locked in.
+  // Pin the dark palette locally so the artwork card keeps its dark treatment
+  // (bright accents + white name over a dark scrim) even in light mode.
+  const base = {
+    position: 'relative',
     cursor: locked ? 'default' : 'pointer',
     fontFamily: C.sansFont,
     textAlign: 'left',
-    background: flashColor ? flashBg(flashColor) : C.surface,
+    background: '#0c0d11',
     border: `1.5px solid ${flashColor ?? C.border}`,
     borderRadius: 16,
-    padding: '22px 24px',
-    transition: 'border-color .15s, background .15s',
-  }
+    padding: 0,
+    overflow: 'hidden',
+    minHeight: 'clamp(128px, 40vw, 168px)',
+    boxShadow: flashColor
+      ? `0 0 0 3px color-mix(in oklab, ${flashColor} 28%, transparent)`
+      : 'none',
+    transition: 'border-color .15s, box-shadow .15s',
+    '--text': '#f2f3f7',
+    '--sean': 'oklch(0.78 0.15 155)',
+    '--pit': 'oklch(0.78 0.15 55)',
+  } as CSSProperties
   return (
     <button
       onClick={onClick}
       disabled={locked}
+      aria-label={`C’est ${name}`}
       style={base}
       onMouseEnter={(e) => {
         if (locked) return
         e.currentTarget.style.borderColor = accent
-        e.currentTarget.style.background = hoverBg
       }}
       onMouseLeave={(e) => {
         if (locked) return
         e.currentTarget.style.borderColor = C.border
-        e.currentTarget.style.background = C.surface
       }}
     >
+      {/* Candidate artwork as background, with placeholder fallback. */}
+      <Artwork
+        src={image}
+        name={name}
+        color={accent}
+        size={168}
+        radius={0}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+      />
+
+      {/* Dark scrim so the name stays readable over any cover. */}
       <div
+        aria-hidden
         style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(180deg, rgba(12,13,17,0.35) 0%, rgba(12,13,17,0.7) 55%, rgba(12,13,17,0.94) 100%)',
+        }}
+      />
+
+      {/* Corner badge echoing the A / B keyboard shortcut. */}
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          top: 12,
+          left: 14,
           fontFamily: C.monoFont,
-          fontSize: 12,
-          letterSpacing: 2,
+          fontSize: 11,
+          fontWeight: 600,
           color: accent,
-          textTransform: 'uppercase',
-          marginBottom: 8,
+          background: 'rgba(12,13,17,0.55)',
+          borderRadius: 6,
+          padding: '2px 7px',
         }}
       >
-        {option}
+        {badge}
+      </span>
+
+      {/* Foreground: slot dot + artist name, bottom-anchored. */}
+      <div
+        style={{
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          minHeight: 'clamp(128px, 40vw, 168px)',
+          gap: 8,
+          padding: '18px 18px',
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            background: accent,
+            boxShadow: `0 0 10px ${accent}`,
+          }}
+        />
+        <span
+          style={{
+            fontSize: 'clamp(19px, 5.5vw, 24px)',
+            fontWeight: 700,
+            letterSpacing: -0.5,
+            lineHeight: 1.1,
+            color: C.text,
+            textShadow: '0 1px 12px rgba(0,0,0,0.7)',
+          }}
+        >
+          {name}
+        </span>
       </div>
-      <div style={{ fontSize: 26, fontWeight: 600, color: C.text }}>{label}</div>
     </button>
   )
 }

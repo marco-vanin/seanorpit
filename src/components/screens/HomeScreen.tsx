@@ -3,6 +3,7 @@ import { Button } from '../ui/Button'
 import { Artwork } from '../ui/Artwork'
 import { C, slotColor } from '../../theme'
 import { CURATED, type Matchup } from '../../game/matchups'
+import { lifetimeStats } from '../../game/useGame'
 
 /**
  * Home hub at `/`. "Blind Duel" headline + pitch, a primary "Créer un duel" CTA
@@ -13,57 +14,209 @@ import { CURATED, type Matchup } from '../../game/matchups'
 export function HomeScreen({
   onSelectMatchup,
   onCustom,
+  onOpenRules,
+  onOpenSettings,
 }: {
   onSelectMatchup: (matchup: Matchup) => void
   onCustom: () => void
+  onOpenRules: () => void
+  onOpenSettings: () => void
 }) {
+  // Lifetime totals for the stats strip (read once per mount from localStorage).
+  const stats = lifetimeStats()
   return (
-    <div style={{ textAlign: 'center', animation: 'floatIn .5s ease both' }}>
+    <div style={{ animation: 'floatIn .5s ease both' }}>
+      {/* Top bar: brand + help */}
       <div
         style={{
-          fontFamily: C.monoFont,
-          fontSize: 13,
-          letterSpacing: 4,
-          textTransform: 'uppercase',
-          color: C.muted2,
-          marginBottom: 18,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 'clamp(40px, 9vw, 72px)',
         }}
       >
-        Blindtest audio · Devine l'artiste
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
+          <svg
+            width="26"
+            height="26"
+            viewBox="0 0 32 32"
+            aria-hidden="true"
+            style={{ display: 'block', flexShrink: 0 }}
+          >
+            <circle cx="12" cy="16" r="10" fill="var(--sean)" />
+            <circle cx="21.5" cy="16" r="11.5" fill="var(--bg)" />
+            <circle cx="21.5" cy="16" r="10" fill="var(--pit)" />
+          </svg>
+          <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.4, color: C.text }}>
+            Blind Duel
+          </span>
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={onOpenRules}
+            aria-label="Comment jouer"
+            style={{
+              cursor: 'pointer',
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              fontFamily: C.monoFont,
+              fontSize: 13,
+              letterSpacing: 1,
+              color: C.text,
+              background: C.surface,
+              border: `1px solid ${C.border2}`,
+              borderRadius: 999,
+              padding: '8px 16px',
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: C.gold,
+                color: C.bg,
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              ?
+            </span>
+            Comment jouer
+          </button>
+          <button
+            onClick={onOpenSettings}
+            aria-label="Paramètres"
+            style={{
+              cursor: 'pointer',
+              flexShrink: 0,
+              width: 38,
+              height: 38,
+              borderRadius: 999,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: C.text,
+              background: C.surface,
+              border: `1px solid ${C.border2}`,
+              fontSize: 16,
+              lineHeight: 1,
+            }}
+          >
+            ⚙
+          </button>
+        </div>
       </div>
 
-      <h1
-        style={{
-          fontSize: 'clamp(44px, 15vw, 88px)',
-          fontWeight: 700,
-          lineHeight: 1,
-          letterSpacing: -3,
-          margin: '0 0 16px',
-        }}
-      >
-        Blind Duel
-      </h1>
+      {/* Hero */}
+      <div style={{ textAlign: 'center', marginBottom: 40, position: 'relative' }}>
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: -70,
+            left: '6%',
+            width: 320,
+            height: 320,
+            borderRadius: '50%',
+            background:
+              'radial-gradient(circle, color-mix(in oklab, var(--sean) 20%, transparent), transparent 70%)',
+            filter: 'blur(48px)',
+            pointerEvents: 'none',
+            zIndex: -1,
+          }}
+        />
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: -40,
+            right: '6%',
+            width: 320,
+            height: 320,
+            borderRadius: '50%',
+            background:
+              'radial-gradient(circle, color-mix(in oklab, var(--pit) 18%, transparent), transparent 70%)',
+            filter: 'blur(48px)',
+            pointerEvents: 'none',
+            zIndex: -1,
+          }}
+        />
+        <div
+          style={{
+            fontFamily: C.monoFont,
+            fontSize: 12,
+            letterSpacing: 4,
+            textTransform: 'uppercase',
+            color: C.muted,
+            marginBottom: 20,
+          }}
+        >
+          Blindtest audio · Devine l'artiste
+        </div>
 
-      <p
+        <h1
+          style={{
+            fontSize: 'clamp(52px, 11vw, 104px)',
+            fontWeight: 700,
+            lineHeight: 0.95,
+            letterSpacing: -4,
+            margin: '0 0 20px',
+          }}
+        >
+          Blind Duel
+        </h1>
+
+        <p
+          style={{
+            maxWidth: 430,
+            margin: '0 auto 32px',
+            color: C.muted2,
+            fontSize: 'clamp(15px, 4.4vw, 18px)',
+            lineHeight: 1.55,
+          }}
+        >
+          Un extrait, deux artistes, quelques secondes pour trancher. Compose ton propre duel ou
+          défie un classique.
+        </p>
+
+        <Button
+          onClick={onCustom}
+          aria-label="Créer un duel personnalisé"
+          style={{
+            width: '100%',
+            maxWidth: 380,
+            margin: '0 auto',
+            display: 'block',
+            boxShadow: '0 14px 44px -14px color-mix(in oklab, var(--sean) 50%, transparent)',
+          }}
+        >
+          ✨ Créer un duel
+        </Button>
+      </div>
+
+      {/* Lifetime stats strip. */}
+      <div
         style={{
+          display: 'flex',
           maxWidth: 460,
-          margin: '0 auto 30px',
-          color: C.muted,
-          fontSize: 'clamp(15px, 4.4vw, 17px)',
-          lineHeight: 1.5,
+          margin: '0 auto 44px',
+          border: `1px solid var(--hairline)`,
+          borderRadius: 16,
+          overflow: 'hidden',
+          background: 'var(--nav-bg)',
         }}
       >
-        Deux artistes, un extrait, une seule bonne réponse. Compose ton duel ou lance-toi sur un
-        classique.
-      </p>
-
-      <Button
-        onClick={onCustom}
-        aria-label="Créer un duel personnalisé"
-        style={{ width: '100%', maxWidth: 460, margin: '0 auto 40px', display: 'block' }}
-      >
-        ✨ Créer un duel
-      </Button>
+        <LifetimeStat value={stats.games} label="Parties" />
+        <LifetimeStat value={`${stats.accuracy}%`} label="Précision moy." color={C.sean} divider />
+        <LifetimeStat value={stats.recordStreak} label="Record série" color={C.gold} divider />
+      </div>
 
       <div
         style={{
@@ -71,21 +224,19 @@ export function HomeScreen({
           fontSize: 12,
           letterSpacing: 3,
           textTransform: 'uppercase',
-          color: C.muted3,
+          color: C.muted,
           textAlign: 'left',
-          maxWidth: 460,
           margin: '0 auto 14px',
         }}
       >
-        Duels populaires
+        Duels prêts à jouer
       </div>
 
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
           gap: 14,
-          maxWidth: 460,
           margin: '0 auto',
           textAlign: 'left',
         }}
@@ -102,8 +253,47 @@ export function HomeScreen({
   )
 }
 
+function LifetimeStat({
+  value,
+  label,
+  color,
+  divider,
+}: {
+  value: string | number
+  label: string
+  color?: string
+  divider?: boolean
+}) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        padding: '16px 8px',
+        textAlign: 'center',
+        borderLeft: divider ? `1px solid var(--hairline)` : 'none',
+      }}
+    >
+      <div style={{ fontSize: 24, fontWeight: 700, color: color ?? C.text }}>{value}</div>
+      <div
+        style={{
+          fontFamily: C.monoFont,
+          fontSize: 10,
+          letterSpacing: 1,
+          color: C.muted,
+          textTransform: 'uppercase',
+          marginTop: 3,
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  )
+}
+
 function MatchupCard({ matchup, onClick }: { matchup: Matchup; onClick: () => void }) {
-  const base: CSSProperties = {
+  // Pin the dark palette locally so these album-art cards keep their dark
+  // treatment (bright names over a dark scrim) even when the app is in light mode.
+  const base = {
     position: 'relative',
     cursor: 'pointer',
     fontFamily: C.sansFont,
@@ -116,7 +306,10 @@ function MatchupCard({ matchup, onClick }: { matchup: Matchup; onClick: () => vo
     overflow: 'hidden',
     minHeight: 'clamp(132px, 38vw, 168px)',
     transition: 'border-color .15s, transform .15s',
-  }
+    '--muted-2': '#b6bac6',
+    '--sean-bright': 'oklch(0.82 0.13 155)',
+    '--pit-bright': 'oklch(0.82 0.13 55)',
+  } as CSSProperties
   return (
     <button
       onClick={onClick}
@@ -187,26 +380,26 @@ function MatchupCard({ matchup, onClick }: { matchup: Matchup; onClick: () => vo
             textShadow: '0 1px 12px rgba(0,0,0,0.6)',
           }}
         >
-          <span style={{ color: slotColor('a') }}>{matchup.a.name}</span>
+          <span style={{ color: 'var(--sean-bright)' }}>{matchup.a.name}</span>
           <span
             style={{
               fontFamily: C.monoFont,
               fontSize: 13,
               fontWeight: 600,
-              color: C.muted,
+              color: 'var(--muted-2)',
               textTransform: 'lowercase',
             }}
           >
             or
           </span>
-          <span style={{ color: slotColor('b') }}>{matchup.b.name}</span>
+          <span style={{ color: 'var(--pit-bright)' }}>{matchup.b.name}</span>
         </span>
         <span
           style={{
             fontFamily: C.monoFont,
             fontSize: 12,
             letterSpacing: 1,
-            color: C.muted,
+            color: 'var(--muted-2)',
             textTransform: 'uppercase',
             textShadow: '0 1px 8px rgba(0,0,0,0.6)',
           }}

@@ -20,9 +20,8 @@ export function ModeCards({
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '1fr',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
         gap: 14,
-        maxWidth: 460,
         margin: '0 auto',
         textAlign: 'left',
       }}
@@ -44,19 +43,26 @@ function ModeCard({
   onSelect: (mode: Mode) => void
 }) {
   const best = matchup.source === 'custom' ? 0 : bestFor(matchup, mode)
+  // Classique reads green; Mort subite reads gold.
+  const accent = mode.endOnWrong ? C.gold : C.sean
+  const recordValue =
+    best <= 0
+      ? '—'
+      : mode.questions === 'endless'
+        ? `série de ${best}`
+        : `${best} / ${mode.questions}`
+
   const base: CSSProperties = {
     cursor: 'pointer',
+    position: 'relative',
     fontFamily: C.sansFont,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
     width: '100%',
     textAlign: 'left',
-    background: C.surface,
+    background: `linear-gradient(135deg, var(--surface-hover), var(--surface-3))`,
     border: `1.5px solid ${C.border}`,
     borderRadius: 18,
-    padding: '18px 20px',
-    transition: 'border-color .15s, background .15s, transform .15s',
+    padding: '22px 24px',
+    transition: 'border-color .15s, transform .15s',
   }
   return (
     <button
@@ -64,50 +70,77 @@ function ModeCard({
       aria-label={`Jouer en mode ${mode.label}`}
       style={base}
       onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = C.muted4
-        e.currentTarget.style.background = C.surface2
+        e.currentTarget.style.borderColor = accent
         e.currentTarget.style.transform = 'translateY(-2px)'
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = C.border
-        e.currentTarget.style.background = C.surface
         e.currentTarget.style.transform = 'none'
       }}
     >
-      <span style={{ fontSize: 34, lineHeight: 1, flexShrink: 0 }} aria-hidden>
-        {mode.icon}
-      </span>
-      <span style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <span
+          aria-hidden
           style={{
-            display: 'block',
-            fontSize: 21,
-            fontWeight: 600,
-            color: C.text,
-            marginBottom: 3,
+            flexShrink: 0,
+            width: 52,
+            height: 52,
+            borderRadius: 14,
+            background: `color-mix(in oklab, ${accent} 14%, transparent)`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 26,
           }}
         >
-          {mode.label}
+          {mode.icon}
         </span>
-        <span style={{ display: 'block', fontSize: 14, color: C.muted }}>{mode.rule}</span>
-      </span>
-      <span
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.5, color: C.text }}>
+              {mode.label}
+            </span>
+            <span
+              style={{
+                fontFamily: C.monoFont,
+                fontSize: 12,
+                letterSpacing: 1,
+                color: accent,
+                textTransform: 'uppercase',
+              }}
+            >
+              {mode.badge}
+            </span>
+          </div>
+          <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.5, marginTop: 4 }}>
+            {mode.blurb}
+          </div>
+        </div>
+      </div>
+
+      <div
         style={{
-          flexShrink: 0,
-          textAlign: 'right',
-          fontFamily: C.monoFont,
-          fontSize: 11,
-          letterSpacing: 1,
-          textTransform: 'uppercase',
-          color: C.muted3,
-          lineHeight: 1.5,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 16,
+          paddingTop: 14,
+          borderTop: `1px solid ${C.border}`,
         }}
       >
-        Record
-        <span style={{ display: 'block', fontSize: 18, fontWeight: 600, color: C.gold }}>
-          {best > 0 ? best : '—'}
+        <span
+          style={{
+            fontFamily: C.monoFont,
+            fontSize: 12,
+            letterSpacing: 1,
+            color: C.muted2,
+            textTransform: 'uppercase',
+          }}
+        >
+          Record · <span style={{ color: best > 0 ? accent : C.text }}>{recordValue}</span>
         </span>
-      </span>
+        <span style={{ fontFamily: C.monoFont, fontSize: 13, color: accent }}>Jouer →</span>
+      </div>
     </button>
   )
 }

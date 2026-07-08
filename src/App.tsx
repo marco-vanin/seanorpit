@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import { useGame, type Game, type Selection } from './game/useGame'
+import { useGame, resetStats, type Game, type Selection } from './game/useGame'
 import { useAudioPlayer } from './game/useAudioPlayer'
 import { unlockAudio, playSting } from './game/stings'
 import { modeBySlug, type Mode } from './game/modes'
@@ -11,6 +11,10 @@ import { CustomDuelScreen } from './components/screens/CustomDuelScreen'
 import { PlayingScreen } from './components/screens/PlayingScreen'
 import { RevealScreen } from './components/screens/RevealScreen'
 import { ResultsScreen } from './components/screens/ResultsScreen'
+import { RulesSheet } from './components/ui/RulesSheet'
+import { SettingsSheet } from './components/ui/SettingsSheet'
+import { ConfirmDialog } from './components/ui/ConfirmDialog'
+import { applyTheme, readTheme, type ThemeMode } from './game/theme-mode'
 import { C, slotColor } from './theme'
 
 /**
@@ -38,7 +42,7 @@ function Shell({ children }: { children: ReactNode }) {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 'clamp(20px, 5vw, 40px)',
-        background: 'radial-gradient(120% 90% at 50% -10%, #171922 0%, #0c0d11 60%)',
+        background: 'radial-gradient(120% 90% at 50% -10%, var(--bg-glow) 0%, var(--bg) 60%)',
         color: C.text,
       }}
     >
@@ -49,29 +53,67 @@ function Shell({ children }: { children: ReactNode }) {
 
 export function App() {
   const game = useGame()
+  // The "Comment jouer" sheet is shared across routes (home + playing HUD), so
+  // its open state lives here, above <Routes>.
+  const [rulesOpen, setRulesOpen] = useState(false)
+  const openRules = () => setRulesOpen(true)
+
+  // Settings modal (shared like the rules sheet) + theme state. The initial
+  // theme was already applied to <html> in main.tsx; we mirror it in state so
+  // the segmented control reflects and drives it.
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [theme, setThemeState] = useState<ThemeMode>(readTheme)
+  const setTheme = (mode: ThemeMode) => {
+    applyTheme(mode)
+    setThemeState(mode)
+  }
 
   return (
     <GameContext.Provider value={game}>
       <Shell>
         <Routes>
-          <Route path="/" element={<HomeRoute />} />
+          <Route
+            path="/"
+            element={
+              <HomeRoute onOpenRules={openRules} onOpenSettings={() => setSettingsOpen(true)} />
+            }
+          />
           <Route path="/duel/custom" element={<CustomDuelRoute />} />
           <Route path="/duel/:matchupId" element={<CuratedDuelRoute />} />
-          <Route path="/jouer/:matchup/:mode" element={<PlayRoute />} />
+          <Route path="/jouer/:matchup/:mode" element={<PlayRoute rulesOpen={rulesOpen} />} />
           <Route path="/resultats" element={<ResultsRoute />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Shell>
+      <RulesSheet open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={theme}
+        onSetTheme={setTheme}
+        onResetStats={() => {
+          resetStats()
+          setSettingsOpen(false)
+        }}
+      />
     </GameContext.Provider>
   )
 }
 
-function HomeRoute() {
+function HomeRoute({
+  onOpenRules,
+  onOpenSettings,
+}: {
+  onOpenRules: () => void
+  onOpenSettings: () => void
+}) {
   const navigate = useNavigate()
   return (
     <HomeScreen
       onSelectMatchup={(matchup) => navigate(`/duel/${matchup.id}`)}
       onCustom={() => navigate('/duel/custom')}
+      onOpenRules={onOpenRules}
+      onOpenSettings={onOpenSettings}
     />
   )
 }
@@ -106,11 +148,25 @@ function CustomDuelRoute() {
   return <CustomDuelScreen onPlay={handlePlay} onBack={() => navigate('/')} />
 }
 
-function PlayRoute() {
+function PlayRoute({ rulesOpen }: { rulesOpen: boolean }) {
   const game = useGameContext()
   const { state } = game
   const params = useParams()
   const navigate = useNavigate()
+
+  // Abandon confirm lives here (route-owned): the HUD "Quitter" opens it; on
+  // confirm we reset the run (quit → null matchup stops the clip) and go home.
+  const [quitOpen, setQuitOpen] = useState(false)
+
+  // Keyboard controls: A/B (or ←/→) guess, space play/pause, Enter → next on
+  // reveal. Subscribed once; a ref carries the latest handler so it always sees
+  // current state without re-subscribing. Inert while the rules sheet is open.
+  const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keyHandlerRef.current(e)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const mode = params.mode ? modeBySlug(params.mode) : undefined
   const isCustom = params.matchup === 'custom'
@@ -175,6 +231,21 @@ function PlayRoute() {
     game.toggleMute()
   }
 
+  // Refreshed every render so the window listener always sees current state.
+  keyHandlerRef.current = (e: KeyboardEvent) => {
+    if (rulesOpen || quitOpen) return
+    if (state.screen === 'playing' && state.selected === null) {
+      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') handleGuess('a')
+      else if (e.key === 'b' || e.key === 'B' || e.key === 'ArrowRight') handleGuess('b')
+      else if (e.key === ' ') {
+        e.preventDefault()
+        handleToggle()
+      }
+    } else if (state.screen === 'reveal' && e.key === 'Enter') {
+      game.next()
+    }
+  }
+
   if (state.screen === 'reveal') {
     return (
       <RevealScreen
@@ -191,31 +262,53 @@ function PlayRoute() {
   }
 
   return (
-    <PlayingScreen
-      qNumber={game.qNumber}
-      total={game.total}
-      score={state.score}
-      streak={state.streak}
-      endless={game.mode?.questions === 'endless'}
-      playing={state.playing}
-      timerEnabled={game.timerEnabled}
-      timeLeft={state.timeLeft}
-      seconds={game.seconds}
-      nameA={matchup.a.name}
-      nameB={matchup.b.name}
-      accentA={slotColor('a')}
-      accentB={slotColor('b')}
-      onToggle={handleToggle}
-      onGuessA={() => handleGuess('a')}
-      onGuessB={() => handleGuess('b')}
-      hasAudio={audio.hasAudio && !audio.error}
-      loading={audio.hasAudio && !audio.ready && !audio.error}
-      blocked={audio.blocked}
-      selected={game.selected}
-      answerCorrect={game.answerCorrect}
-      muted={state.muted}
-      onToggleMute={handleToggleMute}
-    />
+    <>
+      <PlayingScreen
+        qNumber={game.qNumber}
+        total={game.total}
+        score={state.score}
+        streak={state.streak}
+        endless={game.mode?.questions === 'endless'}
+        playing={state.playing}
+        timerEnabled={game.timerEnabled}
+        timeLeft={state.timeLeft}
+        seconds={game.seconds}
+        elapsed={audio.elapsed}
+        duration={audio.duration}
+        nameA={matchup.a.name}
+        nameB={matchup.b.name}
+        accentA={slotColor('a')}
+        accentB={slotColor('b')}
+        imageA={matchup.a.image}
+        imageB={matchup.b.image}
+        onToggle={handleToggle}
+        onGuessA={() => handleGuess('a')}
+        onGuessB={() => handleGuess('b')}
+        hasAudio={audio.hasAudio && !audio.error}
+        loading={audio.hasAudio && !audio.ready && !audio.error}
+        blocked={audio.blocked}
+        selected={game.selected}
+        answerCorrect={game.answerCorrect}
+        showHint={game.showHint}
+        muted={state.muted}
+        onToggleMute={handleToggleMute}
+        onQuit={() => setQuitOpen(true)}
+      />
+      <ConfirmDialog
+        open={quitOpen}
+        title="Abandonner la partie ?"
+        body="Ta progression sera perdue."
+        confirmLabel="Abandonner"
+        cancelLabel="Continuer"
+        danger
+        onConfirm={() => {
+          setQuitOpen(false)
+          game.quit()
+          navigate('/')
+        }}
+        onCancel={() => setQuitOpen(false)}
+      />
+    </>
   )
 }
 

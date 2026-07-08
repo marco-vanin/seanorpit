@@ -1,23 +1,69 @@
-/* Design tokens + base styles. */
+/* Design tokens + base styles. Both palettes live here so the runtime
+   light/dark toggle re-colors everything via CSS custom properties. The DARK
+   values equal the original hardcoded colors, so dark mode is unchanged. */
 :root {
+  color-scheme: dark;
   --bg: #0c0d11;
+  --bg-glow: #171922;
   --text: #edeef2;
   --muted: #9a9eae;
   --muted-2: #7c8091;
   --muted-3: #6a6e7e;
   --muted-4: #5c6070;
   --muted-5: #4d5162;
-  --border: #21232d;
-  --border-2: #24262f;
+  --dim: #6d7284;
+  --chip-text: #cdd0da;
   --surface: #12141b;
   --surface-2: #15171f;
+  --surface-3: #101219;
+  --surface-hover: #16181f;
+  --kbd-bg: #1a1d26;
+  --tab-active: #1c1f29;
+  --nav-bg: rgba(18, 20, 27, 0.6);
+  --border: #21232d;
+  --border-2: #24262f;
+  --border-3: #2c2f3a;
+  --hairline: #1c1e27;
 
   --sean: oklch(0.78 0.15 155); /* Sean Paul — green */
+  --sean-bright: oklch(0.82 0.13 155);
   --pit: oklch(0.78 0.15 55); /* Pitbull — orange */
+  --pit-bright: oklch(0.82 0.13 55);
   --gold: oklch(0.82 0.14 85); /* streak accent */
 
   --font-sans: 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f6fa;
+  --bg-glow: #ffffff;
+  --text: #171a21;
+  --muted: #5b6172;
+  --muted-2: #6b7080;
+  --muted-3: #7d8393;
+  --muted-4: #9096a4;
+  --muted-5: #a6abb8;
+  --dim: #7d8393;
+  --chip-text: #333947;
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #eef0f6;
+  --surface-hover: #edeff5;
+  --kbd-bg: #e9ebf2;
+  --tab-active: #ffffff;
+  --nav-bg: rgba(255, 255, 255, 0.65);
+  --border: #d9dce5;
+  --border-2: #ced2dd;
+  --border-3: #b6bcc9;
+  --hairline: #e3e6ed;
+
+  --sean: oklch(0.47 0.13 155);
+  --sean-bright: oklch(0.42 0.13 155);
+  --pit: oklch(0.48 0.15 55);
+  --pit-bright: oklch(0.44 0.14 55);
+  --gold: oklch(0.48 0.1 85);
 }
 
 * {
@@ -38,10 +84,19 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 button {
   font-family: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--sean);
+  outline-offset: 2px;
 }
 
 @keyframes eq {
@@ -72,6 +127,17 @@ button {
   100% {
     transform: scale(1.6);
     opacity: 0;
+  }
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

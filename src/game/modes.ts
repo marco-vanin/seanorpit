@@ -15,6 +15,10 @@ export interface Mode {
   label: string
   /** One-line card rule (French) */
   rule: string
+  /** Short mono badge on the mode card (e.g. "10 titres" / "Sans filet"). */
+  badge: string
+  /** Longer card description (French). */
+  blurb: string
   /** Emoji icon */
   icon: string
   /** Fixed round length, or 'endless' for the shuffled full pool */
@@ -32,6 +36,8 @@ export const MODES: Record<ModeKey, Mode> = {
     slug: 'classique',
     label: 'Classique',
     rule: '10 titres · 30 s par titre',
+    badge: '10 titres',
+    blurb: 'Le format de référence. Écoute, tranche, vise le sans-faute sur dix extraits.',
     icon: '🎧',
     questions: 10,
     timerSeconds: 30,
@@ -43,6 +49,8 @@ export const MODES: Record<ModeKey, Mode> = {
     slug: 'mort-subite',
     label: 'Mort subite',
     rule: 'Une erreur et c’est terminé',
+    badge: 'Sans filet',
+    blurb: 'Une seule erreur et la manche s’arrête net. Jusqu’où tiendra ta série ?',
     icon: '💀',
     questions: 'endless',
     timerSeconds: 30,

@@ -18,7 +18,14 @@ export function ModeSelectScreen({
   onBack: () => void
 }) {
   return (
-    <div style={{ textAlign: 'center', animation: 'floatIn .45s ease both' }}>
+    <div
+      style={{
+        textAlign: 'center',
+        animation: 'floatIn .45s ease both',
+        maxWidth: 840,
+        margin: '0 auto',
+      }}
+    >
       <button
         onClick={onBack}
         aria-label="Retour à l'accueil"
@@ -45,7 +52,7 @@ export function ModeSelectScreen({
           fontSize: 'clamp(14px, 4vw, 16px)',
         }}
       >
-        Choisis ton mode de jeu.
+        Deux façons de jouer. Choisis la tienne.
       </p>
 
       <ModeCards matchup={matchup} onSelect={onSelect} />
