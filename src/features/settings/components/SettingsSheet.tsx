@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { cn } from '@/utils/cn'
-import type { ThemeMode } from '../theme-mode'
+import type { ThemeMode } from '../utils/theme-mode'
 
 /**
  * Dismissible "Paramètres" modal, shared across routes like RulesSheet. Holds a

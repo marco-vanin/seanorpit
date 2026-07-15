@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { slotColor } from '@/utils/colors'
-import { accuracyPct, gradeFor } from '@/features/game/scoring'
+import { accuracyPct, gradeFor } from '@/features/game/utils/scoring'
 import { duelShareUrl, shareDuel } from '@/utils/share'
 import type { Matchup, Mode } from '@/types'
 import { cn } from '@/utils/cn'

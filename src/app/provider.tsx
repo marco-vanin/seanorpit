@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { useGame, type Game } from '@/features/game'
+import { useGame, type Game } from '@/features/game/hooks/useGame'
 
 /**
  * The single shared game instance lives here, above <Routes>, so navigating

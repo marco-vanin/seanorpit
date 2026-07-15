@@ -5,7 +5,7 @@ import type { Matchup, Mode } from '@/types'
 import { cn } from '@/utils/cn'
 import { SlotCard } from './SlotCard'
 import { DuelReady } from './DuelReady'
-import suggestedData from '../suggested.json'
+import suggestedData from '../api/suggested.json'
 
 /** Curated suggestion pool (real ids + photos) for the random duel. */
 const SUGGESTED = suggestedData as ArtistHit[]

@@ -1,7 +1,7 @@
 import type { Matchup } from '@/types'
 import { lifetimeStats } from '@/lib/stats'
 import { Button } from '@/components/ui/Button'
-import { CURATED } from '../matchups'
+import { CURATED } from '../api/matchups'
 import { LifetimeStatsStrip } from './LifetimeStatsStrip'
 import { MatchupCard } from './MatchupCard'
 

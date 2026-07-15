@@ -1,7 +1,0 @@
-export { PlayingScreen } from './components/PlayingScreen'
-export { RevealScreen } from './components/RevealScreen'
-export { ResultsScreen } from './components/ResultsScreen'
-export { useGame } from './hooks/useGame'
-export type { Game, Screen, Selection } from './hooks/useGame'
-export { useAudioPlayer } from './hooks/useAudioPlayer'
-export { unlockAudio, playSting } from './stings'

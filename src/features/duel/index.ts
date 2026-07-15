@@ -1,5 +1,0 @@
-export { HomeScreen } from './components/HomeScreen'
-export { ModeSelectScreen } from './components/ModeSelectScreen'
-export { CustomDuelScreen } from './components/CustomDuelScreen'
-export { DuelReady } from './components/DuelReady'
-export { CURATED, matchupById } from './matchups'
