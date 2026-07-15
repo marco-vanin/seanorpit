@@ -3,6 +3,7 @@ import { HomeRoute } from './routes/home'
 import { CustomDuelRoute } from './routes/duel-custom'
 import { SharedDuelRoute } from './routes/duel-shared'
 import { CuratedDuelRoute } from './routes/duel-modes'
+import { DailyRoute } from './routes/daily'
 import { PlayRoute } from './routes/play'
 import { ResultsRoute } from './routes/results'
 import { NotFoundRoute } from './routes/not-found'
@@ -17,6 +18,7 @@ export function AppRoutes({ rulesOpen }: { rulesOpen: boolean }) {
           /duel/:matchupId, so it never shadows them. */}
       <Route path="/duel/:idA/:idB" element={<SharedDuelRoute />} />
       <Route path="/duel/:matchupId" element={<CuratedDuelRoute />} />
+      <Route path="/quotidien" element={<DailyRoute />} />
       <Route path="/jouer/:matchup/:mode" element={<PlayRoute rulesOpen={rulesOpen} />} />
       <Route path="/resultats" element={<ResultsRoute />} />
       <Route path="*" element={<NotFoundRoute />} />

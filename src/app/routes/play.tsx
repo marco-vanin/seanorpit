@@ -3,6 +3,8 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import type { Side } from '@/types'
 import { modeBySlug } from '@/config/modes'
 import { matchupById } from '@/features/duel/api/matchups'
+import { dailyMatchup, dailyOrder } from '@/features/duel/api/daily'
+import { readDaily, todayKey } from '@/lib/daily'
 import { PlayingScreen } from '@/features/game/components/PlayingScreen'
 import { RevealScreen } from '@/features/game/components/RevealScreen'
 import { useAudioPlayer } from '@/features/game/hooks/useAudioPlayer'
@@ -33,16 +35,30 @@ export function PlayRoute({ rulesOpen }: { rulesOpen: boolean }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const mode = params.mode ? modeBySlug(params.mode) : undefined
   const isCustom = params.matchup === 'custom'
-  const curated = !isCustom && params.matchup ? matchupById(params.matchup) : undefined
+  const isDaily = params.matchup === 'quotidien'
+
+  // The daily is deterministic from today's date: same curated duel + same
+  // seeded song order for everyone, always Classique. Re-derived every render,
+  // so a mid-game refresh reproduces the identical daily.
+  const dailyDate = isDaily ? todayKey() : undefined
+  const dailyM = isDaily ? dailyMatchup(dailyDate!) : undefined
+  const dailyMode = isDaily ? modeBySlug('classique') : undefined
+
+  // For non-daily routes the mode comes from the URL; the daily forces Classique.
+  const mode = isDaily ? dailyMode : params.mode ? modeBySlug(params.mode) : undefined
+  const curated = !isCustom && !isDaily && params.matchup ? matchupById(params.matchup) : undefined
   // The custom matchup only exists in memory once built via the builder.
   const activeCustom = game.matchup?.id === 'custom' ? game.matchup : undefined
-  const matchup = isCustom ? activeCustom : curated
+  const matchup = isCustom ? activeCustom : isDaily ? dailyM : curated
 
   const { start } = game
   const activeMatchupId = game.matchup?.id
   const activeModeKey = game.mode?.key
+  // Whether the shared game is already running THIS daily (so a re-render / the
+  // hard-lock guard doesn't restart it, and lets a mid-run refresh continue).
+  const dailyActive =
+    isDaily && game.state.dailyDate === dailyDate && activeMatchupId === dailyM?.id
 
   // Auto-start curated deep-links (/jouer/:id/:mode). Custom is never auto-started
   // — a cold custom URL has no in-memory matchup and redirects home below.
@@ -53,6 +69,19 @@ export function PlayRoute({ rulesOpen }: { rulesOpen: boolean }) {
       start(curated, mode)
     }
   }, [mode, curated, activeMatchupId, activeModeKey, start])
+
+  // Auto-start the daily with its seeded order + daily marker. Deterministic, so
+  // a mid-game refresh reproduces the identical run and still records correctly.
+  useEffect(() => {
+    if (!isDaily || !dailyM || !dailyMode || !dailyDate) return
+    if (readDaily().playedToday) return // hard lock — the guard below redirects home
+    if (game.state.dailyDate !== dailyDate || activeMatchupId !== dailyM.id) {
+      unlockAudio()
+      const order = dailyOrder(dailyM, dailyDate, dailyMode.questions as number)
+      start(dailyM, dailyMode, { order, dailyDate })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDaily, dailyM?.id, dailyDate, activeMatchupId, game.state.dailyDate, start])
 
   // Leave the play route once the run ends (reveal → results is route-owned).
   useEffect(() => {
@@ -75,6 +104,9 @@ export function PlayRoute({ rulesOpen }: { rulesOpen: boolean }) {
   }, [state.selected, state.muted])
 
   if (!mode) return <Navigate to="/" replace />
+  // Hard lock: entering the daily when today's is already played (and we're not
+  // mid-run for it) bounces home, where the DailyCard shows the played state.
+  if (isDaily && readDaily().playedToday && !dailyActive) return <Navigate to="/" replace />
   // Invalid curated id, or a cold/reloaded custom URL with no in-memory matchup.
   if (!matchup) return <Navigate to="/" replace />
 

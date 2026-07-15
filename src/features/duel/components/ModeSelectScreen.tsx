@@ -4,25 +4,40 @@ import { Artwork } from '@/components/ui/Artwork'
 import { ModeCards } from './ModeCards'
 
 /**
- * Curated mode-select at `/duel/:matchupId`. The two artist names as a header
- * (slot colors) + the three mode cards with per-mode best. Mobile-first.
+ * Mode-select page: the two artist names as a header (slot colors) + the mode
+ * cards with per-mode best. Used both at `/duel/:matchupId` (full choice) and by
+ * the daily, which passes a restricted `modes` (Classique only) plus a `label` +
+ * `subtitle` — same page, no real choice. Mobile-first.
  */
 export function ModeSelectScreen({
   matchup,
   onSelect,
+  modes,
+  label,
+  subtitle,
 }: {
   matchup: Matchup
   onSelect: (mode: Mode) => void
+  /** Restrict the offered modes (default: all). The daily passes `[classique]`. */
+  modes?: Mode[]
+  /** Optional kicker above the header (e.g. "⭐ Duel du jour · 15 juil"). */
+  label?: string
+  /** Optional lead line (default: the "two ways to play" prompt). */
+  subtitle?: string
 }) {
   return (
     <div className="mx-auto max-w-[840px] text-center [animation:floatIn_.45s_ease_both]">
+      {label && (
+        <div className="mb-3 font-mono text-[12px] tracking-[3px] text-gold uppercase">{label}</div>
+      )}
+
       <MatchupHeader matchup={matchup} />
 
       <p className="mx-auto mb-[30px] text-[clamp(14px,4vw,16px)] text-muted">
-        Deux façons de jouer. Choisis la tienne.
+        {subtitle ?? 'Deux façons de jouer. Choisis la tienne.'}
       </p>
 
-      <ModeCards matchup={matchup} onSelect={onSelect} />
+      <ModeCards matchup={matchup} onSelect={onSelect} modes={modes} />
     </div>
   )
 }

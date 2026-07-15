@@ -8,6 +8,7 @@ export function HomeRoute() {
     <HomeScreen
       onSelectMatchup={(matchup) => navigate(`/duel/${matchup.id}`)}
       onCustom={() => navigate('/duel/custom')}
+      onPlayDaily={() => navigate('/quotidien')}
     />
   )
 }

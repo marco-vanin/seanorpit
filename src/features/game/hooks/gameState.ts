@@ -21,6 +21,12 @@ export interface GameState {
   muted: boolean
   /** True once the player has made their first explicit guess ever. */
   hintSeen: boolean
+  /**
+   * The `YYYY-MM-DD` date of the daily challenge when this run IS the "Duel du
+   * jour", else `null`. On finish, a non-null value also records the daily
+   * streak. A replay always clears it (a replay is never the daily).
+   */
+  dailyDate: string | null
 }
 
 // ── Session prefs (mute + first-play hint) ──────────────────────────────────

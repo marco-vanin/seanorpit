@@ -1,5 +1,6 @@
 import type { Matchup } from '@/types'
 import { lifetimeStats } from '@/lib/stats'
+import { readDaily } from '@/lib/daily'
 import { Button } from '@/components/ui/Button'
 import { CURATED } from '../api/matchups'
 import { LifetimeStatsStrip } from './LifetimeStatsStrip'
@@ -14,12 +15,17 @@ import { MatchupCard } from './MatchupCard'
 export function HomeScreen({
   onSelectMatchup,
   onCustom,
+  onPlayDaily,
 }: {
   onSelectMatchup: (matchup: Matchup) => void
   onCustom: () => void
+  onPlayDaily: () => void
 }) {
   // Lifetime totals for the stats strip (read once per mount from localStorage).
   const stats = lifetimeStats()
+  // Daily state for the "Duel du jour" button (streak chip + played tick). The
+  // duel itself is a surprise — never revealed on home, only after clicking.
+  const daily = readDaily()
   return (
     <div className="animate-[floatIn_0.5s_ease_both]">
       {/* Hero */}
@@ -45,13 +51,26 @@ export function HomeScreen({
           défie un classique.
         </p>
 
-        <Button
-          onClick={onCustom}
-          aria-label="Créer un duel personnalisé"
-          className="mx-auto block w-full max-w-[380px] shadow-[0_14px_44px_-14px_color-mix(in_oklab,var(--slot-a)_50%,transparent)]"
-        >
-          ✨ Créer un duel
-        </Button>
+        <div className="mx-auto flex w-full max-w-[440px] flex-col items-stretch gap-3 sm:flex-row sm:justify-center">
+          <Button
+            onClick={onCustom}
+            aria-label="Créer un duel personnalisé"
+            className="shadow-[0_14px_44px_-14px_color-mix(in_oklab,var(--slot-a)_50%,transparent)] sm:flex-1"
+          >
+            ✨ Créer un duel
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onPlayDaily}
+            aria-label="Jouer le duel du jour"
+            className="sm:flex-1"
+          >
+            <span className="inline-flex items-center gap-2">
+              {daily.playedToday ? '✓ Duel du jour' : '🎯 Duel du jour'}
+              {daily.streak >= 1 && <span className="text-gold">🔥 {daily.streak}</span>}
+            </span>
+          </Button>
+        </div>
       </div>
 
       {/* Lifetime stats strip. */}

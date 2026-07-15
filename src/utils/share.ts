@@ -1,4 +1,5 @@
 import type { Matchup } from '@/types'
+import { formatDayMonth } from '@/lib/daily'
 
 /**
  * Stateless share link for a custom duel: the two artists' iTunes ids in the
@@ -32,4 +33,28 @@ export async function shareDuel(matchup: Matchup): Promise<ShareOutcome> {
   } catch {
     return 'unavailable'
   }
+}
+
+/**
+ * Spoiler-free rich share text for a completed "Duel du jour". Reveals the
+ * question (the two artist names) and the result, never the answers:
+ *
+ *   Duel du jour · 15 juil
+ *   {A} or {B} — 8/10 🎯
+ *   série 🔥4
+ *   {origin}
+ */
+export function dailyShareText(
+  matchup: Matchup,
+  dateKey: string,
+  score: number,
+  total: number,
+  streak: number,
+): string {
+  return (
+    `Duel du jour · ${formatDayMonth(dateKey)}\n` +
+    `${matchup.a.name} or ${matchup.b.name} — ${score}/${total} 🎯\n` +
+    `série 🔥${streak}\n` +
+    window.location.origin
+  )
 }

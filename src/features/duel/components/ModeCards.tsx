@@ -5,20 +5,23 @@ import { bestFor } from '@/lib/stats'
 import { cn } from '@/utils/cn'
 
 /**
- * The mode cards (Classique / Mort subite) for a given matchup. Shows each
- * mode's per-(matchup, mode) best — curated only; custom shows "—".
+ * The mode cards for a given matchup. Shows each mode's per-(matchup, mode) best
+ * — curated only; custom shows "—". Defaults to the full mode list (Classique /
+ * Mort subite); callers can restrict it (e.g. the daily locks it to Classique).
  * Single column, mobile-first.
  */
 export function ModeCards({
   matchup,
   onSelect,
+  modes = MODE_LIST,
 }: {
   matchup: Matchup
   onSelect: (mode: Mode) => void
+  modes?: Mode[]
 }) {
   return (
     <div className="mx-auto grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-[14px] text-left">
-      {MODE_LIST.map((mode) => (
+      {modes.map((mode) => (
         <ModeCard key={mode.key} matchup={matchup} mode={mode} onSelect={onSelect} />
       ))}
     </div>

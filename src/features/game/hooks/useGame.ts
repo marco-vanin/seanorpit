@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { Matchup, Mode, Side, Song } from '@/types'
 import { readBestFor, recordGame, writeBestFor } from '@/lib/stats'
+import { recordDaily } from '@/lib/daily'
 import { useCountdown } from './useCountdown'
 import {
   orderFor,
@@ -38,7 +39,7 @@ export interface Game {
   /** True until the player makes their first explicit guess (one-time hint). */
   showHint: boolean
   muted: boolean
-  start: (matchup: Matchup, mode: Mode) => void
+  start: (matchup: Matchup, mode: Mode, opts?: { order?: number[]; dailyDate?: string }) => void
   guess: (side: Side) => void
   next: () => void
   togglePlay: () => void
@@ -70,25 +71,31 @@ export function useGame(): Game {
     best: 0,
     muted: readMuted(),
     hintSeen: readHintSeen(),
+    dailyDate: null,
   }))
 
-  const start = useCallback((matchup: Matchup, mode: Mode) => {
-    setState((s) => ({
-      ...s,
-      matchup,
-      mode,
-      screen: 'playing',
-      order: orderFor(matchup, mode),
-      qIndex: 0,
-      score: 0,
-      streak: 0,
-      bestStreak: 0,
-      selected: null,
-      playing: true,
-      timeLeft: mode.timerSeconds,
-      best: readBestFor(matchup, mode),
-    }))
-  }, [])
+  const start = useCallback(
+    (matchup: Matchup, mode: Mode, opts?: { order?: number[]; dailyDate?: string }) => {
+      setState((s) => ({
+        ...s,
+        matchup,
+        mode,
+        screen: 'playing',
+        // The daily supplies its own seeded order; normal duels stay random.
+        order: opts?.order ?? orderFor(matchup, mode),
+        qIndex: 0,
+        score: 0,
+        streak: 0,
+        bestStreak: 0,
+        selected: null,
+        playing: true,
+        timeLeft: mode.timerSeconds,
+        best: readBestFor(matchup, mode),
+        dailyDate: opts?.dailyDate ?? null,
+      }))
+    },
+    [],
+  )
 
   const answer = useCallback((choice: Selection) => {
     setState((s) => {
@@ -123,6 +130,8 @@ export function useGame(): Game {
         const best = Math.max(s.best, s.score)
         writeBestFor(s.matchup, s.mode, best)
         recordGame({ answered: s.qIndex + 1, score: s.score, bestStreak: s.bestStreak })
+        // A daily run also extends the daily streak (idempotent per date).
+        if (s.dailyDate) recordDaily(s.dailyDate, s.score, totalFor(s))
         return { ...s, screen: 'results', best }
       }
       return {
@@ -166,6 +175,8 @@ export function useGame(): Game {
         playing: true,
         timeLeft: mode.timerSeconds,
         best: readBestFor(matchup, mode),
+        // A replay is never the daily — clear the marker so it never re-records.
+        dailyDate: null,
       }
     })
   }, [])
@@ -190,6 +201,7 @@ export function useGame(): Game {
       selected: null,
       timeLeft: 0,
       best: 0,
+      dailyDate: null,
     }))
   }, [])
 

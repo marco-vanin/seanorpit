@@ -16,6 +16,11 @@ export const STORAGE_KEYS = {
   lifeCorrect: 'bd_life_correct',
   lifeAnswered: 'bd_life_answered',
   lifeRecStreak: 'bd_life_recstreak',
+  // ── Daily challenge (Duel du jour) — additive, independent of the stats above.
+  dailyLast: 'bd_daily_last',
+  dailyStreak: 'bd_daily_streak',
+  dailyBest: 'bd_daily_best',
+  dailyResult: 'bd_daily_result',
 } as const
 
 /** localStorage best key for a curated (matchup, mode) pair. */
