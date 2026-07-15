@@ -7,7 +7,7 @@ import { LifetimeStatsStrip } from './LifetimeStatsStrip'
 import { MatchupCard } from './MatchupCard'
 
 /**
- * Home hub at `/`. "Blind Duel" headline + pitch, a primary "Créer un duel" CTA
+ * Home hub at `/`. "Duon" headline + pitch, a primary "Créer un duel" CTA
  * (custom is the star), then a "Duels prêts à jouer" section with one card per
  * curated matchup ("«A» or «B»" in slot colors). Mobile-first, single column,
  * `clamp()` type.
@@ -43,7 +43,7 @@ export function HomeScreen({
         </div>
 
         <h1 className="m-0 mb-5 text-[clamp(52px,11vw,104px)] leading-[0.95] font-bold tracking-[-4px]">
-          Blind Duel
+          Duon
         </h1>
 
         <p className="mx-auto mb-8 max-w-[430px] text-[clamp(15px,4.4vw,18px)] leading-[1.55] text-muted-2">

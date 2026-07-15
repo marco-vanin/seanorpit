@@ -64,8 +64,8 @@ export function ResultsScreen({
 
   // Spoiler-free share text (no answers, just the result).
   const shareText = endless
-    ? `Blind Duel — ${matchup.a.name} or ${matchup.b.name} : série de ${score} en Mort subite. Sauras-tu faire mieux ?`
-    : `Blind Duel — ${matchup.a.name} or ${matchup.b.name} : ${score}/${total} — ${grade.label}. Sauras-tu faire mieux ?`
+    ? `Duon — ${matchup.a.name} or ${matchup.b.name} : série de ${score} en Mort subite. Sauras-tu faire mieux ?`
+    : `Duon — ${matchup.a.name} or ${matchup.b.name} : ${score}/${total} — ${grade.label}. Sauras-tu faire mieux ?`
 
   const doCopy = () => {
     try {

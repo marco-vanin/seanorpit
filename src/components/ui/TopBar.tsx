@@ -1,7 +1,7 @@
 /**
  * Persistent navigation bar shown on the nav screens (home, custom builder,
  * mode-select, results, shared-duel) — never on gameplay (`/jouer/...`). Left:
- * the brand (overlapping-circles logo + "Blind Duel") as a home button. Right:
+ * the brand (overlapping-circles logo + "Duon") as a home button. Right:
  * the "? Comment jouer" pill + the ⚙ settings button.
  */
 export function TopBar({
@@ -31,7 +31,7 @@ export function TopBar({
           <circle cx="21.5" cy="16" r="11.5" fill="var(--bg)" />
           <circle cx="21.5" cy="16" r="10" fill="var(--slot-b)" />
         </svg>
-        <span className="text-[17px] font-bold tracking-[-0.4px] text-text">Blind Duel</span>
+        <span className="text-[17px] font-bold tracking-[-0.4px] text-text">Duon</span>
       </button>
       <div className="flex items-center gap-2">
         <button
